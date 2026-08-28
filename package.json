@@ -1,11 +1,12 @@
 {
-  "name": "overseer-v1.3.1",
-  "version": "1.3.1",
-  "description": "Overseer AI Discord administrator bot with server intelligence, Smart AutoMod, AI tickets, memory and reports",
+  "name": "overseer-v1.4.0",
+  "version": "1.4.0",
+  "description": "Overseer AI Discord administrator bot with server intelligence, Smart AutoMod, AI tickets, memory, reports and automated quality checks",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "deploy": "node src/deploy-commands.js"
+    "deploy": "node src/deploy-commands.js",
+    "check": "node --check src/index.js && node --check src/ai.js && node --check src/automod.js && node --check src/database.js && node --check src/deploy-commands.js && node --check src/server-intelligence.js && node --check src/tools.js"
   },
   "engines": {
     "node": ">=20"
