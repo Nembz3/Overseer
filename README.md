@@ -1,36 +1,173 @@
-# Overseer V1.3.0
+# 👁️ Overseer V1.4
 
-A Discord AI administrator/moderator built around Gemini and Discord.js.
+A Discord AI administrator and moderator built around **Gemini**, **Discord.js**, and a persistent local **SQLite** database.
 
-## V1.3 features
-- Live server intelligence injected into AI context
-- `/overseer-status` live status
-- `/overseer-report` local activity reports (no Gemini request)
+Overseer is designed to act as a server's AI operations layer: it can answer members, inspect server context, moderate users, manage server resources, operate tickets, run giveaways, remember important information, and provide staff with control and reporting tools.
+
+## ✨ Current capabilities
+
+### 🤖 AI administrator
+- Gemini-powered natural-language conversations
+- Ask Overseer questions directly in chat
+- Start a message with `Overseer` instead of using a slash command
+- Bot mentions can also activate Overseer
+- `/overseer` remains available
+- Server/member/role/permission context can be supplied to the AI
+- Tool-based actions for supported server-management tasks
+
+### 🛡️ Moderation
+- Warnings and moderation records
+- Timeout/moderation actions
+- Permission-aware actions
+- Logging of important moderation activity
+- Emergency-stop/safety controls
+- Smart AutoMod with supervised/autonomous timeout modes
+
+### 🎫 Tickets
+- Persistent ticket data
+- AI ticket agent
+- Ticket cooldown to reduce unnecessary Gemini usage
+- Staff escalation
+- Ticket management through the bot
+
+> **Note:** The ticket system is being expanded in future releases with a more complete member-facing ticket panel/open-ticket experience.
+
+### 🧠 Memory & server intelligence
+- Persistent SQLite memory
 - Structured `/overseer-memory` management
-- Smart AutoMod with supervised/autonomous timeout mode
-- AI ticket agent with cooldown and staff escalation
-- Persistent ticket/giveaway/moderation/memory data
-- Member/channel/role event monitoring stored locally
-- Existing V1.2 moderation, permissions, tool calling, tickets, giveaways, logging and emergency stop
-- Gemini is only used when AI reasoning is needed; deterministic reporting and AutoMod are local
+- Server activity intelligence
+- Member/channel/role event monitoring
+- Local activity reporting without requiring a Gemini request for deterministic reports
 
-## Install
-1. Copy `.env.example` to `.env` and fill in `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DISCORD_GUILD_ID` (optional), and `GEMINI_API_KEY`.
-2. Keep `GEMINI_MODEL=gemini-3.6-flash` if that is the model available to your key.
-3. Run `npm install`. If your npm blocks native install scripts, approve/rebuild `better-sqlite3` as you did for the working V1.2.
-4. Run `npm run deploy`.
-5. Run `npm start`.
+### 🎁 Giveaways
+- Persistent giveaway data
+- Giveaway management through Overseer tools/commands
 
-## First checks
-- `/overseer-setup`
+### 🎛️ Control panel
 - `/overseer-panel`
+- AI/action controls
+- Moderation controls
+- AutoMod configuration
+- Logging and operational settings
 - `/overseer-status`
-- `/overseer-report days:1`
-- `/overseer-memory list`
-- `/automod status`
+- `/overseer-report`
 
-AutoMod is disabled by default and supervised mode is the safe default. Ticket AI is enabled by default with an 8-second per-channel cooldown; disable it from the control panel if you want to conserve Gemini quota.
+## 📋 Commands
 
+Useful commands include:
 
-## Natural-language activation
-You can talk directly to Overseer in a server channel without `/overseer`. Start the message with `Overseer`, for example `Overseer, what can you do?` or `Hey Overseer create a channel called general`. Mentioning the bot still works too, and `/overseer` remains available.
+```text
+/overseer
+/overseer-setup
+/overseer-panel
+/overseer-status
+/overseer-report
+/overseer-memory
+/automod
+```
+
+Run `/overseer-setup` when setting up a new server. It creates/configures the server-side resources supported by the current version.
+
+## 💬 Natural-language activation
+
+You don't have to use `/overseer` every time.
+
+Examples:
+
+```text
+Overseer, what can you do?
+Overseer, check my roles and permissions.
+Overseer, how many members are in the server?
+Hey Overseer, help me with my ticket.
+```
+
+Mentions still work, and `/overseer` remains available.
+
+## 🔑 Configuration
+
+Copy `.env.example` to `.env` and configure your own credentials:
+
+```env
+DISCORD_TOKEN=your_discord_bot_token
+DISCORD_CLIENT_ID=your_discord_application_id
+DISCORD_GUILD_ID=your_test_guild_id
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-3.6-flash
+```
+
+**Never commit `.env` or expose your Discord/Gemini keys.** `.env`, `node_modules`, and local SQLite database files should remain outside Git.
+
+## 🛠️ Installation
+
+Requirements:
+
+- Node.js **20+**
+- A Discord application/bot
+- A Gemini API key
+
+Install dependencies:
+
+```bat
+npm install
+```
+
+Deploy slash commands:
+
+```bat
+npm run deploy
+```
+
+Start Overseer:
+
+```bat
+npm start
+```
+
+Run the source validation check:
+
+```bat
+npm run check
+```
+
+## 🔄 Updating
+
+The project is maintained through GitHub rather than separate ZIP releases.
+
+If you have the repository locally, run:
+
+```bat
+update.bat
+npm run check
+npm start
+```
+
+The updater pulls the latest `main` branch and runs `npm install`.
+
+Your local `.env` and SQLite database are intentionally not tracked by Git, so they remain on your machine during normal updates.
+
+## 🧪 Recommended first checks
+
+After installation/update, test:
+
+```text
+/overseer-setup
+/overseer-panel
+/overseer-status
+/overseer-report days:1
+/overseer-memory list
+/automod status
+```
+
+Then test natural-language messages beginning with `Overseer`.
+
+## 📦 Versioning
+
+Current version: **1.4.0**
+
+See `CHANGELOG.md` for the release history.
+
+## ⚠️ Safety & permissions
+
+Overseer should only be given the Discord permissions it actually needs. Discord role hierarchy still applies: the bot cannot reliably moderate members or manage roles above its highest role, regardless of what the AI is asked to do.
+
+For destructive or high-impact actions, use the available confirmation/safety controls and keep the bot's permissions appropriately limited.
