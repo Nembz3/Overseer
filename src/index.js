@@ -1,0 +1,397 @@
+require("dotenv").config();
+const {
+  Client, GatewayIntentBits, Events, EmbedBuilder, ActionRowBuilder,
+  ButtonBuilder, ButtonStyle, PermissionFlagsBits, ChannelType, MessageFlags
+} = require("discord.js");
+const { ask } = require("./ai");
+const db = require("./database");
+const automod = require("./automod");
+const intelligence = require("./server-intelligence");
+
+if (!process.env.DISCORD_TOKEN || !process.env.DISCORD_CLIENT_ID || !process.env.GEMINI_API_KEY) {
+  throw new Error("Missing DISCORD_TOKEN, DISCORD_CLIENT_ID or GEMINI_API_KEY in .env");
+}
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
+});
+
+client.once(Events.ClientReady, c => console.log(`Overseer V1.3.0 online as ${c.user.tag}`));
+
+async function sendLog(guild, embed) {
+  const s = db.settings(guild.id);
+  if (!s.log_channel_id) return;
+  const channel = guild.channels.cache.get(s.log_channel_id) || await guild.channels.fetch(s.log_channel_id).catch(() => null);
+  if (channel?.isTextBased()) await channel.send({ embeds: [embed] }).catch(() => {});
+}
+
+function staff(member) {
+  return member?.permissions.has(PermissionFlagsBits.ManageGuild) || member?.permissions.has(PermissionFlagsBits.Administrator);
+}
+
+const ticketAiCooldown = new Map();
+
+client.on(Events.MessageCreate, async message => {
+  if (message.author.bot || !message.guild || !client.user) return;
+  const s = db.settings(message.guild.id);
+  if (s.automod_enabled) {
+    automod.handle(message).catch(e => console.error("AutoMod error:", e));
+  }
+  // AI ticket agent: only runs inside an open Overseer ticket, ignores staff and bot messages, and is rate-limited.
+  const ticket = db.ticketByChannel(message.channel.id);
+  if (ticket?.status === "open" && s.ticket_ai_enabled && !staff(message.member)) {
+    const now = Date.now();
+    const last = ticketAiCooldown.get(message.channel.id) || 0;
+    if (now - last >= Math.max(3, Number(s.ticket_ai_cooldown || 8)) * 1000) {
+      ticketAiCooldown.set(message.channel.id, now);
+      try {
+        await message.channel.sendTyping();
+        const answer = await ask({ guild: message.guild, actorId: message.author.id, text: `TICKET SUPPORT MODE. The user is speaking in ticket #${ticket.id}. Help solve the issue. Do not perform moderation or server-management actions unless a staff member explicitly requests it. If the issue requires staff authority, clearly escalate it. User message: ${message.content}` });
+        if (answer) await message.reply(answer.slice(0, 2000));
+      } catch (e) { console.error("Ticket AI error:", e); }
+      return;
+    }
+  }
+  if (!s.ai_enabled) return;
+
+  // Natural-language activation: users can address Overseer by name instead of using /overseer.
+  // Examples: "Overseer, what can you do?", "Hey Overseer create a channel", "Overseer help".
+  // The /overseer slash command remains available.
+  const mentionRegex = new RegExp(`<@!?${client.user.id}>`, "g");
+  const withoutMention = message.content.replace(mentionRegex, "").trim();
+  const nameTrigger = /^(?:(?:hey|hi|hello|yo|ok|okay|please)\s*[,:-]?\s*)?overseer\b/i;
+  const addressedByName = nameTrigger.test(withoutMention);
+  const mentioned = message.mentions.has(client.user);
+  if (!addressedByName && !mentioned) return;
+
+  const text = withoutMention.replace(nameTrigger, "").trim();
+  if (!text) return message.reply("👋 I'm here. Ask me something or give me a request.");
+  try {
+    await message.channel.sendTyping();
+    const answer = await ask({ guild: message.guild, actorId: message.author.id, text });
+    await message.reply(answer.slice(0, 2000));
+  } catch (e) {
+    console.error("Overseer AI error:", e);
+    await message.reply("❌ I couldn't contact the AI right now. Check the bot console.").catch(() => {});
+  }
+});
+
+client.on(Events.InteractionCreate, async interaction => {
+  try {
+    if (interaction.isChatInputCommand()) {
+      if (interaction.commandName === "overseer") return await handleOverseer(interaction);
+      if (interaction.commandName === "overseer-panel") return await handlePanel(interaction);
+      if (interaction.commandName === "overseer-confirm") return await handleConfirm(interaction);
+      if (interaction.commandName === "overseer-setup") return await handleSetup(interaction);
+      if (interaction.commandName === "ticket") return await handleTicket(interaction);
+      if (interaction.commandName === "giveaway") return await handleGiveaway(interaction);
+      if (interaction.commandName === "automod") return await handleAutomod(interaction);
+      if (interaction.commandName === "overseer-status") return await handleStatus(interaction);
+      if (interaction.commandName === "overseer-report") return await handleReport(interaction);
+      if (interaction.commandName === "overseer-memory") return await handleMemory(interaction);
+    }
+    if (interaction.isButton()) return await handleButton(interaction);
+  } catch (e) {
+    console.error("Interaction error:", e);
+    const msg = "❌ Something went wrong. Check the bot console.";
+    if (interaction.replied || interaction.deferred) await interaction.followUp({ content: msg, flags: MessageFlags.Ephemeral }).catch(() => {});
+    else await interaction.reply({ content: msg, flags: MessageFlags.Ephemeral }).catch(() => {});
+  }
+});
+
+async function handleOverseer(i) {
+  const s = db.settings(i.guild.id);
+  if (!s.ai_enabled) return i.reply({ content: "🔴 Overseer AI is disabled.", flags: MessageFlags.Ephemeral });
+  await i.deferReply();
+  const text = i.options.getString("question", true);
+  try {
+    const answer = await ask({ guild: i.guild, actorId: i.user.id, text });
+    await i.editReply(answer.slice(0, 2000));
+  } catch (e) {
+    console.error("Overseer AI error:", e);
+    await i.editReply("❌ I couldn't contact the AI right now. Check the bot console.");
+  }
+}
+
+async function handleConfirm(i) {
+  if (!staff(i.member)) return i.reply({ content: "❌ You need Manage Server.", flags: MessageFlags.Ephemeral });
+  const id = i.options.getString("id", true).trim().toUpperCase();
+  const pending = db.getPending(id);
+  if (!pending || pending.guild_id !== i.guild.id) return i.reply({ content: "❌ That confirmation ID is invalid or expired.", flags: MessageFlags.Ephemeral });
+  if (pending.actor_id !== i.user.id) return i.reply({ content: "❌ Only the staff member who requested this action can confirm it.", flags: MessageFlags.Ephemeral });
+  const member = await i.guild.members.fetch(pending.payload.user_id).catch(() => null);
+  const me = i.guild.members.me;
+  if (!member || !me || member.id === i.guild.ownerId || member.roles.highest.position >= me.roles.highest.position) {
+    db.deletePending(id);
+    return i.reply({ content: "❌ The target can no longer be moderated because of Discord role hierarchy or availability.", flags: MessageFlags.Ephemeral });
+  }
+  try {
+    if (pending.action === "ban") {
+      if (!me.permissions.has(PermissionFlagsBits.BanMembers)) throw new Error("I need Ban Members permission.");
+      await member.ban({ reason: pending.payload.reason });
+      db.log(i.guild.id, i.user.id, member.id, "BAN", pending.payload.reason);
+    } else if (pending.action === "kick") {
+      if (!me.permissions.has(PermissionFlagsBits.KickMembers)) throw new Error("I need Kick Members permission.");
+      await member.kick(pending.payload.reason);
+      db.log(i.guild.id, i.user.id, member.id, "KICK", pending.payload.reason);
+    } else throw new Error("Unknown pending action.");
+    db.deletePending(id);
+    return i.reply({ content: `✅ **${pending.action.toUpperCase()}** completed for <@${member.id}>.`, flags: MessageFlags.Ephemeral });
+  } catch (e) {
+    db.deletePending(id);
+    return i.reply({ content: `❌ Action failed: ${e.message}`, flags: MessageFlags.Ephemeral });
+  }
+}
+
+async function handleSetup(i) {
+  if (!staff(i.member)) return i.reply({ content: "❌ You need Manage Server.", flags: MessageFlags.Ephemeral });
+  await i.deferReply({ flags: MessageFlags.Ephemeral });
+  const existingLog = db.settings(i.guild.id).log_channel_id ? i.guild.channels.cache.get(db.settings(i.guild.id).log_channel_id) : null;
+  const existingMod = db.settings(i.guild.id).mod_channel_id ? i.guild.channels.cache.get(db.settings(i.guild.id).mod_channel_id) : null;
+  const existingCategory = db.settings(i.guild.id).ticket_category_id ? i.guild.channels.cache.get(db.settings(i.guild.id).ticket_category_id) : null;
+  const category = existingCategory || await i.guild.channels.create({ name: "🎫 TICKETS", type: ChannelType.GuildCategory, reason: "Overseer setup" });
+  const logChannel = existingLog || await i.guild.channels.create({ name: "overseer-logs", type: ChannelType.GuildText, reason: "Overseer setup" });
+  const modChannel = existingMod || await i.guild.channels.create({ name: "mod-logs", type: ChannelType.GuildText, reason: "Overseer setup" });
+  db.update(i.guild.id, { ticket_category_id: category.id, log_channel_id: logChannel.id, mod_channel_id: modChannel.id });
+  db.log(i.guild.id, i.user.id, null, "SETUP", "Created/configured Overseer infrastructure");
+  await i.editReply(`✅ **Overseer setup complete.**\n\n🎫 Ticket category: ${category}\n📋 Overseer logs: ${logChannel}\n🛡️ Mod logs: ${modChannel}\n\nUse **/ticket open** to test tickets.`);
+}
+
+async function handlePanel(i) {
+  if (!staff(i.member)) return i.reply({ content: "❌ You need Manage Server to use the control panel.", flags: MessageFlags.Ephemeral });
+  const s = db.settings(i.guild.id);
+  const embed = new EmbedBuilder()
+    .setTitle("👁️ Overseer Control Panel")
+    .setDescription("Manage Overseer's AI, actions, confirmations and logging.")
+    .addFields(
+      { name: "AI", value: s.ai_enabled ? "🟢 Enabled" : "🔴 Disabled", inline: true },
+      { name: "Actions", value: s.actions_enabled ? "🟢 Enabled" : "🔴 Disabled", inline: true },
+      { name: "Confirmations", value: s.confirmations ? "🟡 Required for bans" : "🟢 Reduced", inline: true },
+      { name: "Log channel", value: s.log_channel_id ? `<#${s.log_channel_id}>` : "Not configured", inline: true },
+      { name: "Tickets", value: s.ticket_category_id ? "🟢 Configured" : "⚪ Not configured", inline: true },
+      { name: "Ticket AI", value: s.ticket_ai_enabled ? `🟢 ${s.ticket_ai_cooldown || 8}s cooldown` : "🔴 Disabled", inline: true },
+      { name: "Memory", value: `${db.memories(i.guild.id).length} stored facts`, inline: true },
+      { name: "AutoMod", value: s.automod_enabled ? `🟢 ${s.automod_mode}` : "🔴 Disabled", inline: true },
+      { name: "Incidents", value: `${db.automodIncidents(i.guild.id, 100).length} recent`, inline: true }
+    );
+  const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("ov_ai_toggle").setLabel("Toggle AI").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("ov_actions_toggle").setLabel("Toggle Actions").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("ov_confirm_toggle").setLabel("Toggle Confirmations").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("ov_logs").setLabel("Recent Logs").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId("ov_setup").setLabel("⚙️ Setup").setStyle(ButtonStyle.Success)
+  );
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("ov_emergency").setLabel("🛑 Emergency Stop").setStyle(ButtonStyle.Danger)
+  );
+  const row3 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("ov_automod_toggle").setLabel("🛡️ Toggle AutoMod").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("ov_automod_incidents").setLabel("AutoMod Incidents").setStyle(ButtonStyle.Secondary)
+  );
+  const row4 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("ov_ticket_ai").setLabel("🎫 Toggle Ticket AI").setStyle(ButtonStyle.Primary)
+  );
+  await i.reply({ embeds: [embed], components: [row1, row2, row3, row4], flags: MessageFlags.Ephemeral });
+}
+
+async function handleButton(i) {
+  if (!staff(i.member)) return i.reply({ content: "❌ You need Manage Server.", flags: MessageFlags.Ephemeral });
+  const id = i.customId;
+  const s = db.settings(i.guild.id);
+  if (id === "ov_ai_toggle") {
+    db.update(i.guild.id, { ai_enabled: s.ai_enabled ? 0 : 1 });
+    return i.update({ content: `AI is now **${s.ai_enabled ? "disabled" : "enabled"}**.`, embeds: [], components: [] });
+  }
+  if (id === "ov_actions_toggle") {
+    db.update(i.guild.id, { actions_enabled: s.actions_enabled ? 0 : 1 });
+    return i.update({ content: `AI actions are now **${s.actions_enabled ? "disabled" : "enabled"}**.`, embeds: [], components: [] });
+  }
+  if (id === "ov_confirm_toggle") {
+    db.update(i.guild.id, { confirmations: s.confirmations ? 0 : 1 });
+    return i.update({ content: `Ban confirmations are now **${s.confirmations ? "off" : "on"}**.`, embeds: [], components: [] });
+  }
+  if (id === "ov_setup") {
+    return handleSetup(i);
+  }
+  if (id === "ov_emergency") {
+    db.update(i.guild.id, { actions_enabled: 0 });
+    db.log(i.guild.id, i.user.id, null, "EMERGENCY_STOP", "Overseer actions disabled from control panel");
+    return i.update({ content: "🛑 **Emergency stop activated.** Overseer AI actions are disabled. You can re-enable them from the control panel.", embeds: [], components: [] });
+  }
+  if (id === "ov_ticket_ai") {
+    db.update(i.guild.id, { ticket_ai_enabled: s.ticket_ai_enabled ? 0 : 1 });
+    return i.update({ content: `🎫 Ticket AI is now **${s.ticket_ai_enabled ? "disabled" : "enabled"}**.`, embeds: [], components: [] });
+  }
+  if (id === "ov_automod_toggle") {
+    db.update(i.guild.id, { automod_enabled: s.automod_enabled ? 0 : 1 });
+    return i.update({ content: `🛡️ AutoMod is now **${s.automod_enabled ? "disabled" : "enabled"}**. Default mode: **${s.automod_mode || "supervised"}**.`, embeds: [], components: [] });
+  }
+  if (id === "ov_automod_incidents") {
+    const rows = db.automodIncidents(i.guild.id, 10);
+    const text = rows.length ? rows.map(x => `**${x.type}** • <@${x.user_id}> • ${x.action} • ${x.details}`).join("\n") : "No AutoMod incidents yet.";
+    return i.update({ content: `🛡️ **Recent AutoMod Incidents**\n\n${text}`.slice(0, 1900), embeds: [], components: [] });
+  }
+  if (id === "ov_logs") {
+    const rows = db.logs(i.guild.id, 10);
+    const text = rows.length ? rows.map(x => `**${x.action}** • <@${x.actor_id || "0"}> • ${x.reason || "No reason"}`).join("\n") : "No logs yet.";
+    return i.update({ content: `📋 **Recent Overseer Logs**\n\n${text}`.slice(0, 1900), embeds: [], components: [] });
+  }
+}
+
+async function handleStatus(i) {
+  if (!staff(i.member)) return i.reply({ content: "❌ You need Manage Server.", flags: MessageFlags.Ephemeral });
+  return i.reply({ content: intelligence.summary(i.guild), flags: MessageFlags.Ephemeral });
+}
+
+async function handleReport(i) {
+  if (!staff(i.member)) return i.reply({ content: "❌ You need Manage Server.", flags: MessageFlags.Ephemeral });
+  const days = i.options.getInteger("days", true);
+  const sinceDate = new Date(Date.now() - days * 86400000);
+  const counts = db.eventCounts(i.guild.id, sinceDate.toISOString());
+  const tickets = db.ticketStats(i.guild.id).map(x => `${x.status}: ${x.n}`).join(" • ") || "none";
+  const giveaways = db.giveawayStats(i.guild.id).map(x => `${x.status}: ${x.n}`).join(" • ") || "none";
+  const incidents = db.automodIncidents(i.guild.id, 100).filter(x => new Date(x.created_at).getTime() >= sinceDate.getTime()).length;
+  const events = counts.length ? counts.map(x => `• ${x.event_type}: **${x.n}**`).join("\n") : "No recorded events.";
+  return i.reply({ content: `📊 **Overseer Server Report — ${days} day${days === 1 ? "" : "s"}**\n\nMembers: **${i.guild.memberCount}**\nWarnings recorded: **${db.memberWarningsCount(i.guild.id)}**\nAutoMod incidents: **${incidents}**\nTickets: **${tickets}**\nGiveaways: **${giveaways}**\n\n**Events**\n${events}`.slice(0, 3900), flags: MessageFlags.Ephemeral });
+}
+
+async function handleMemory(i) {
+  if (!staff(i.member)) return i.reply({ content: "❌ You need Manage Server.", flags: MessageFlags.Ephemeral });
+  const sub = i.options.getSubcommand();
+  if (sub === "list") {
+    const rows = db.memories(i.guild.id);
+    const text = rows.length ? rows.map(x => `• **${x.key}** — ${x.value}`).join("\n") : "No stored server memory.";
+    return i.reply({ content: `🧠 **Server Memory**\n\n${text}`.slice(0, 3900), flags: MessageFlags.Ephemeral });
+  }
+  const key = i.options.getString("key", true).trim().slice(0, 100);
+  if (sub === "delete") {
+    db.deleteMemory(i.guild.id, key);
+    db.log(i.guild.id, i.user.id, null, "MEMORY_DELETE", key);
+    return i.reply({ content: `🗑️ Deleted memory **${key}**.`, flags: MessageFlags.Ephemeral });
+  }
+  const value = i.options.getString("value", true).trim().slice(0, 1000);
+  db.remember(i.guild.id, key, value);
+  db.log(i.guild.id, i.user.id, null, "MEMORY_SET", `${key}: ${value}`);
+  return i.reply({ content: `🧠 Saved **${key}**.`, flags: MessageFlags.Ephemeral });
+}
+
+async function handleAutomod(i) {
+  if (!staff(i.member)) return i.reply({ content: "❌ You need Manage Server.", flags: MessageFlags.Ephemeral });
+  const sub = i.options.getSubcommand();
+  const s = db.settings(i.guild.id);
+  if (sub === "status") {
+    const incidents = db.automodIncidents(i.guild.id, 100).length;
+    return i.reply({ content: `🛡️ **AutoMod Status**\n\nStatus: ${s.automod_enabled ? "🟢 Enabled" : "🔴 Disabled"}\nMode: **${s.automod_mode || "supervised"}**\nSpam threshold: **${s.automod_spam_threshold || 6}/10s**\nMention threshold: **${s.automod_mention_threshold || 5}**\nSuspicious-link filter: **${s.automod_link_filter ? "On" : "Off"}**\nRecent incidents: **${incidents}**`, flags: MessageFlags.Ephemeral });
+  }
+  if (sub === "enable") db.update(i.guild.id, { automod_enabled: 1 });
+  if (sub === "disable") db.update(i.guild.id, { automod_enabled: 0 });
+  if (sub === "mode") db.update(i.guild.id, { automod_mode: i.options.getString("mode", true) });
+  if (sub === "links") db.update(i.guild.id, { automod_link_filter: i.options.getBoolean("enabled", true) ? 1 : 0 });
+  if (sub === "thresholds") db.update(i.guild.id, {
+    automod_spam_threshold: i.options.getInteger("spam", true),
+    automod_mention_threshold: i.options.getInteger("mentions", true)
+  });
+  const latest = db.settings(i.guild.id);
+  return i.reply({ content: `🛡️ AutoMod updated.\nStatus: **${latest.automod_enabled ? "Enabled" : "Disabled"}**\nMode: **${latest.automod_mode}**\nSuspicious links: **${latest.automod_link_filter ? "On" : "Off"}**`, flags: MessageFlags.Ephemeral });
+}
+
+async function handleTicket(i) {
+  const sub = i.options.getSubcommand();
+  const s = db.settings(i.guild.id);
+  if (sub === "close") {
+    const t = db.ticketByChannel(i.channelId);
+    if (!t) return i.reply({ content: "❌ This isn't an Overseer ticket.", flags: MessageFlags.Ephemeral });
+    if (t.opener_id !== i.user.id && !staff(i.member)) return i.reply({ content: "❌ Only the ticket opener or staff can close this ticket.", flags: MessageFlags.Ephemeral });
+    db.closeTicket(i.channelId);
+    await i.reply("🔒 Ticket closed. This channel will be deleted in 5 seconds.");
+    setTimeout(() => i.channel?.delete("Ticket closed").catch(() => {}), 5000);
+    return;
+  }
+
+  const existing = i.guild.channels.cache.find(c => c.type === ChannelType.GuildText && db.ticketByChannel(c.id)?.opener_id === i.user.id && db.ticketByChannel(c.id)?.status === "open");
+  if (existing) return i.reply({ content: `❌ You already have an open ticket: ${existing}`, flags: MessageFlags.Ephemeral });
+
+  if (!s.ticket_category_id) return i.reply({ content: "❌ Tickets aren't configured yet. An administrator needs to configure a ticket category.", flags: MessageFlags.Ephemeral });
+  const support = s.ticket_support_role_id ? i.guild.roles.cache.get(s.ticket_support_role_id) : null;
+  const overwrites = [
+    { id: i.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+    { id: i.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+    { id: i.guild.members.me.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] }
+  ];
+  if (support) overwrites.push({ id: support.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
+
+  const channel = await i.guild.channels.create({ name: `ticket-${i.user.username}`.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 90), type: ChannelType.GuildText, parent: s.ticket_category_id, permissionOverwrites: overwrites, reason: "Overseer ticket" });
+  db.createTicket(i.guild.id, channel.id, i.user.id);
+  db.log(i.guild.id, i.user.id, null, "TICKET_OPEN", channel.id);
+  await i.reply({ content: `🎫 Ticket created: ${channel}`, flags: MessageFlags.Ephemeral });
+  await channel.send(`🎫 Welcome <@${i.user.id}>! A member of staff will help you here.\n\nUse **/ticket close** when the issue is resolved.`);
+}
+
+async function handleGiveaway(i) {
+  const sub = i.options.getSubcommand();
+  if (!staff(i.member)) return i.reply({ content: "❌ You need Manage Server.", flags: MessageFlags.Ephemeral });
+  if (sub === "start") {
+    const prize = i.options.getString("prize", true);
+    const minutes = i.options.getInteger("minutes", true);
+    const winners = i.options.getInteger("winners", true);
+    const ends = Date.now() + minutes * 60000;
+    const msg = await i.reply({ content: `🎉 **GIVEAWAY**\n\nPrize: **${prize}**\nWinners: **${winners}**\nEnds: <t:${Math.floor(ends / 1000)}:R>\n\nReact with 🎉 to enter!`, fetchReply: true });
+    await msg.react("🎉");
+    db.createGiveaway({ guild_id: i.guild.id, channel_id: i.channelId, message_id: msg.id, prize, winners, ends_at: ends });
+    db.log(i.guild.id, i.user.id, null, "GIVEAWAY_START", prize);
+    return;
+  }
+  const messageId = i.options.getString("message_id", true);
+  const row = db.runningGiveaways().find(x => x.message_id === messageId && x.guild_id === i.guild.id);
+  if (!row) return i.reply({ content: "❌ Running giveaway not found.", flags: MessageFlags.Ephemeral });
+  await finishGiveaway(i.guild, row);
+  if (sub === "reroll") return i.reply("🔄 Giveaway rerolled.");
+  return i.reply("🏁 Giveaway ended.");
+}
+
+async function finishGiveaway(guild, row) {
+  const channel = await guild.channels.fetch(row.channel_id).catch(() => null);
+  const message = channel?.isTextBased() ? await channel.messages.fetch(row.message_id).catch(() => null) : null;
+  if (!message) { db.finishGiveaway(row.message_id, []); return; }
+  const reaction = message.reactions.cache.get("🎉");
+  const users = reaction ? await reaction.users.fetch() : new Map();
+  const eligible = [...users.values()].filter(u => !u.bot);
+  const winners = [...eligible].sort(() => Math.random() - 0.5).slice(0, Math.min(row.winners, eligible.length));
+  db.finishGiveaway(row.message_id, winners.map(x => x.id));
+  await message.reply(winners.length ? `🏆 Congratulations ${winners.map(x => `<@${x.id}>`).join(", ")}! You won **${row.prize}**!` : `😔 Nobody entered the giveaway for **${row.prize}**.`).catch(() => {});
+}
+
+setInterval(async () => {
+  for (const row of db.runningGiveaways()) {
+    if (row.ends_at <= Date.now()) {
+      const guild = client.guilds.cache.get(row.guild_id);
+      if (guild) await finishGiveaway(guild, row);
+    }
+  }
+}, 10000);
+
+client.on(Events.GuildMemberAdd, member => {
+  db.recordEvent(member.guild.id, "MEMBER_JOIN", member.id, member.user.tag);
+});
+client.on(Events.GuildMemberRemove, member => {
+  db.recordEvent(member.guild.id, "MEMBER_LEAVE", member.id, member.user?.tag || member.id);
+});
+client.on(Events.ChannelCreate, channel => {
+  if (channel.guild) db.recordEvent(channel.guild.id, "CHANNEL_CREATE", channel.guild.members.me?.id, channel.name);
+});
+client.on(Events.ChannelDelete, channel => {
+  if (channel.guild) db.recordEvent(channel.guild.id, "CHANNEL_DELETE", channel.guild.members.me?.id, channel.name);
+});
+client.on(Events.RoleCreate, role => {
+  db.recordEvent(role.guild.id, "ROLE_CREATE", role.guild.members.me?.id, role.name);
+});
+client.on(Events.RoleDelete, role => {
+  db.recordEvent(role.guild.id, "ROLE_DELETE", role.guild.members.me?.id, role.name);
+});
+
+client.login(process.env.DISCORD_TOKEN);
