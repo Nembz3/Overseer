@@ -46,6 +46,14 @@ Overseer is designed to act as a server's AI operations layer: it can answer mem
 - `/overseer-intelligence` command suite for proactive monitoring
 - `/overseer-cases` command suite for audit and moderation case history
 
+### 🚨 V2.0 Proactive Intelligence
+- Join-flood and activity-spike alerts
+- Persistent proactive alert history
+- Per-member activity tracking
+- Daily/weekly scheduled intelligence reports
+- `/overseer-intelligence` proactive monitoring controls
+- `/overseer-cases` audit and case history
+
 ### 🧠 Memory & server intelligence
 - Persistent SQLite memory
 - Structured `/overseer-memory` management
