@@ -1,4 +1,4 @@
-# 👁️ Overseer V1.4
+# 👁️ Overseer V1.5
 
 A Discord AI administrator and moderator built around **Gemini**, **Discord.js**, and a persistent local **SQLite** database.
 
@@ -24,13 +24,14 @@ Overseer is designed to act as a server's AI operations layer: it can answer mem
 - Smart AutoMod with supervised/autonomous timeout modes
 
 ### 🎫 Tickets
-- Persistent ticket data
-- AI ticket agent
-- Ticket cooldown to reduce unnecessary Gemini usage
-- Staff escalation
-- Ticket management through the bot
-
-> **Note:** The ticket system is being expanded in future releases with a more complete member-facing ticket panel/open-ticket experience.
+- Member-facing **Open Ticket** button
+- `/overseer-setup` creates a reusable `#open-a-ticket` entry point
+- Private ticket channels with permission overwrites
+- One-open-ticket-per-member protection
+- AI ticket agent with cooldown to reduce Gemini usage
+- Staff escalation support
+- Close button and `/ticket close`
+- `/ticket panel` for manually posting an additional ticket opener
 
 ### 🧠 Memory & server intelligence
 - Persistent SQLite memory
@@ -64,6 +65,9 @@ Useful commands include:
 /overseer-report
 /overseer-memory
 /automod
+/ticket open
+/ticket close
+/ticket panel
 ```
 
 Run `/overseer-setup` when setting up a new server. It creates/configures the server-side resources supported by the current version.
@@ -158,11 +162,11 @@ After installation/update, test:
 /automod status
 ```
 
-Then test natural-language messages beginning with `Overseer`.
+Then test natural-language messages beginning with `Overseer` and click **Open Ticket** in `#open-a-ticket`.
 
 ## 📦 Versioning
 
-Current version: **1.4.0**
+Current version: **1.5.0**
 
 See `CHANGELOG.md` for the release history.
 
