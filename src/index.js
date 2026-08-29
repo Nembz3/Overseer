@@ -94,19 +94,19 @@ client.on(Events.MessageCreate, async message => {
 
 // V1.8 activity logging
 client.on(Events.GuildMemberAdd, async member => {
-  intelligence.record(member.guild.id, "member_join", member.id, member.user.tag);
+  db.log(member.guild.id, null, member.id, "MEMBER_JOIN", member.user.tag);
   await sendLog(member.guild, new EmbedBuilder().setDescription(`📥 **Member joined:** ${member.user.tag}`).setTimestamp());
 });
 
 client.on(Events.GuildMemberRemove, async member => {
-  intelligence.record(member.guild.id, "member_leave", member.id, member.user?.tag || "Unknown");
+  db.log(member.guild.id, null, member.id, "MEMBER_LEAVE", member.user?.tag || "Unknown");
   await sendLog(member.guild, new EmbedBuilder().setDescription(`📤 **Member left:** ${member.user?.tag || member.id}`).setTimestamp());
 });
 
 client.on(Events.MessageDelete, async message => {
   if (message.partial) await message.fetch().catch(() => {});
   if (!message.guild || message.author?.bot) return;
-  intelligence.record(message.guild.id, "message_delete", message.author?.id || null, String(message.channel?.id || ""));
+  db.log(message.guild.id, null, message.author?.id || null, "MESSAGE_DELETE", String(message.channel?.id || ""));
   const description = `🗑️ **Message deleted**\nChannel: <#${message.channel.id}>\nAuthor: **${message.author?.tag || "Unknown (message was not cached)"}**${message.content ? `\n\n> ${message.content.slice(0, 800)}` : ""}`;
   await sendLog(message.guild, new EmbedBuilder().setDescription(description).setTimestamp());
 });
@@ -117,7 +117,7 @@ client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
   if (oldMessage.partial) await oldMessage.fetch().catch(() => {});
   if (newMessage.partial) await newMessage.fetch().catch(() => {});
   if (oldMessage.content === newMessage.content) return;
-  intelligence.record(newMessage.guild.id, "message_edit", newMessage.author?.id || null, String(newMessage.channel?.id || ""));
+  db.log(newMessage.guild.id, null, newMessage.author?.id || null, "MESSAGE_EDIT", String(newMessage.channel?.id || ""));
   const description = `✏️ **Message edited**\nChannel: <#${newMessage.channel.id}>\nAuthor: **${newMessage.author?.tag || "Unknown"}**\n\n**Before:** ${String(oldMessage.content || "[unavailable]").slice(0, 500)}\n**After:** ${String(newMessage.content || "[empty]").slice(0, 500)}`;
   await sendLog(newMessage.guild, new EmbedBuilder().setDescription(description).setTimestamp());
 });
