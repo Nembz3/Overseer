@@ -10,6 +10,7 @@ const intelligence = require("./server-intelligence");
 const tickets = require("./tickets");
 const runtime = require("./runtime");
 const proactive = require("./proactive");
+const updates = require("./update-manager");
 
 if (!process.env.DISCORD_TOKEN || !process.env.DISCORD_CLIENT_ID || !process.env.GEMINI_API_KEY) {
   throw new Error("Missing DISCORD_TOKEN, DISCORD_CLIENT_ID or GEMINI_API_KEY in .env");
@@ -151,8 +152,7 @@ client.on(Events.InteractionCreate, async interaction => {
       if (interaction.commandName === "warnings") return await handleWarnings(interaction);
       if (interaction.commandName === "overseer-intelligence") return await handleIntelligence(interaction);
       if (interaction.commandName === "overseer-cases") return await handleCases(interaction);
-      if (interaction.commandName === "overseer-intelligence") return await handleIntelligence(interaction);
-      if (interaction.commandName === "overseer-cases") return await handleCases(interaction);
+      if (interaction.commandName === "overseer-update") return await handleUpdate(interaction);
     }
     if (interaction.isButton() && interaction.customId === "ticket_open") return await handleTicketButton(interaction);
     if (interaction.isButton() && interaction.customId === "ticket_close") return await handleTicketCloseButton(interaction);
@@ -540,7 +540,156 @@ async function handleTicket(i) {
 }
 
 
+async function handleUpdate(i) {
+  if (!i.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+    return i.reply({
+      content: "❌ You need Administrator permission to manage Overseer updates.",
+      flags: MessageFlags.Ephemeral
+    });
+  }
 
+  const subcommand = i.options.getSubcommand();
+
+  if (subcommand === "status") {
+    const version = updates.readVersion();
+    const state = updates.readState();
+
+    return i.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("🔄 Overseer Update Status")
+          .setDescription("Current update system status")
+          .addFields(
+            {
+              name: "Current Version",
+              value: `V${version}`,
+              inline: true
+            },
+            {
+              name: "Auto Update",
+              value: state.autoUpdate ? "Enabled" : "Disabled",
+              inline: true
+            },
+            {
+              name: "Check Interval",
+              value: `${state.intervalMinutes} minutes`,
+              inline: true
+            },
+            {
+              name: "Last Check",
+              value: state.lastCheckAt || "Never",
+              inline: false
+            },
+            {
+              name: "Last Result",
+              value: state.lastResult || "No update checks yet",
+              inline: false
+            }
+          )
+      ]
+    });
+  }
+
+  if (subcommand === "check") {
+    await i.deferReply({ flags: MessageFlags.Ephemeral });
+
+    const result = updates.checkForUpdate();
+
+    const description = result.updateAvailable
+      ? `🆕 Update available!\n\nCurrent: **V${result.currentVersion}**\nA newer GitHub commit was found.`
+      : `✅ Overseer is already up to date.\n\nCurrent version: **V${result.currentVersion}**`;
+
+    return i.editReply({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("🔍 Update Check")
+          .setDescription(description)
+          .addFields(
+            {
+              name: "Local Commit",
+              value: `\`${result.localCommit?.slice(0, 7) || "Unknown"}\``,
+              inline: true
+            },
+            {
+              name: "Remote Commit",
+              value: `\`${result.remoteCommit?.slice(0, 7) || "Unknown"}\``,
+              inline: true
+            }
+          )
+      ]
+    });
+  }
+
+  if (subcommand === "install") {
+    const check = updates.checkForUpdate();
+
+    if (!check.updateAvailable) {
+      return i.reply({
+        content: `✅ Overseer is already up to date (V${check.currentVersion}).`,
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    updates.queueUpdate("install");
+
+    return i.reply({
+      content: "🔄 Update queued successfully. Overseer will install the update through the updater system.",
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
+  if (subcommand === "rollback") {
+    updates.queueUpdate("rollback");
+
+    return i.reply({
+      content: "⏪ Rollback queued successfully. The updater will restore the previous version if a backup is available.",
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
+  if (subcommand === "history") {
+    const items = updates.history(10);
+
+    if (!items.length) {
+      return i.reply({
+        content: "📜 No update history has been recorded yet.",
+        flags: MessageFlags.Ephemeral
+      });
+    }
+
+    const historyText = items
+      .map((entry, index) => {
+        return `${index + 1}. **${entry.mode || entry.action || "Update"}** — ${entry.timestamp || entry.at || "Unknown time"}`;
+      })
+      .join("\n");
+
+    return i.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("📜 Overseer Update History")
+          .setDescription(historyText)
+      ],
+      flags: MessageFlags.Ephemeral
+    });
+  }
+
+  if (subcommand === "auto") {
+    const enabled = i.options.getBoolean("enabled");
+    const interval = i.options.getInteger("interval");
+
+    const state = updates.setAutoUpdate(
+      enabled,
+      interval || undefined
+    );
+
+    return i.reply({
+      content:
+        `⚙️ Automatic updates **${state.autoUpdate ? "enabled" : "disabled"}**.` +
+        `\nCheck interval: **${state.intervalMinutes} minutes**.`,
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
 client.on("error", error => console.error("Discord client error:", error));
 process.on("unhandledRejection", error => console.error("Unhandled promise rejection:", error));
 setInterval(()=>{if(client.isReady()) proactive.runScheduledReports(client).catch(e=>console.error("Scheduled report error:",e));},60000);
