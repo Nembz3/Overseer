@@ -22,7 +22,7 @@ const client = new Client({
   ]
 });
 
-client.once(Events.ClientReady, c => console.log(`Overseer V1.5.0 online as ${c.user.tag}`));
+client.once(Events.ClientReady, c => console.log(`🟢 Overseer V1.5.0 online as ${c.user.tag}`));
 
 async function sendLog(guild, embed) {
   const s = db.settings(guild.id);
@@ -357,7 +357,8 @@ client.on("error", error => console.error("Discord client error:", error));
 process.on("unhandledRejection", error => console.error("Unhandled promise rejection:", error));
 process.on("uncaughtException", error => console.error("Uncaught exception:", error));
 
-client.login(process.env.DISCORD_TOKEN).catch(error => {
+console.log("👁️ Connecting Overseer to Discord...");
+client.login(process.env.DISCORD_TOKEN).then(() => console.log("🔐 Discord login accepted; waiting for Ready event...")).catch(error => {
   console.error("Failed to log Overseer into Discord:", error);
   process.exitCode = 1;
 });
