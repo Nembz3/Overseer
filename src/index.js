@@ -94,6 +94,7 @@ client.on(Events.InteractionCreate, async interaction => {
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === "overseer") return await handleOverseer(interaction);
       if (interaction.commandName === "overseer-panel") return await handlePanel(interaction);
+      if (interaction.commandName === "overseer-diagnostics") return await handleDiagnostics(interaction);
       if (interaction.commandName === "overseer-confirm") return await handleConfirm(interaction);
       if (interaction.commandName === "overseer-setup") return await handleSetup(interaction);
       if (interaction.commandName === "ticket") return await handleTicket(interaction);
