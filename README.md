@@ -1,4 +1,4 @@
-# 👁️ Overseer V1.9
+# 👁️ Overseer V2.0
 
 A Discord AI administrator and moderator built around **Gemini**, **Discord.js**, and a persistent local **SQLite** database.
 
@@ -35,6 +35,16 @@ Overseer is designed to act as a server's AI operations layer: it can answer mem
 - Staff escalation support
 - Close button and `/ticket close`
 - `/ticket panel` for manually posting an additional ticket opener
+
+### 🚨 V2.0 Proactive Intelligence
+- Proactive join-flood detection and raid-style activity alerts
+- Activity-spike detection based on live message volume
+- Persistent proactive alert history
+- Member activity tracking and most-active-member reporting
+- Daily or weekly scheduled intelligence reports
+- Configurable UTC report delivery time and destination channel
+- `/overseer-intelligence` command suite for proactive monitoring
+- `/overseer-cases` command suite for audit and moderation case history
 
 ### 🧠 Memory & server intelligence
 - Persistent SQLite memory
@@ -171,7 +181,7 @@ Then test natural-language messages beginning with `Overseer`, simple local ques
 
 ## 📦 Versioning
 
-Current version: **1.9.0**
+Current version: **2.0.0**
 
 See `CHANGELOG.md` for the release history.
 
