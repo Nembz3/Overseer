@@ -11,6 +11,7 @@ const tickets = require("./tickets");
 const runtime = require("./runtime");
 const proactive = require("./proactive");
 const updates = require("./update-manager");
+const OVERSEER_VERSION = updates.readVersion();
 
 if (!process.env.DISCORD_TOKEN || !process.env.DISCORD_CLIENT_ID || !process.env.GEMINI_API_KEY) {
   throw new Error("Missing DISCORD_TOKEN, DISCORD_CLIENT_ID or GEMINI_API_KEY in .env");
@@ -26,8 +27,7 @@ const client = new Client({
   partials: [Partials.Message, Partials.Channel, Partials.GuildMember, Partials.User]
 });
 
-client.once(Events.ClientReady, c => console.log(`🟢 Overseer V2.0.0 online as ${c.user.tag}`));
-
+client.once(Events.ClientReady, c => console.log(`🟢 Overseer V${OVERSEER_VERSION} online as ${c.user.tag}`));
 async function sendLog(guild, embed) {
   const s = db.settings(guild.id);
   if (!s.log_channel_id) { console.warn(`[Overseer Logs] No log channel configured for ${guild.name}`); return false; }
