@@ -1,4 +1,4 @@
-# 👁️ Overseer V1.6
+# 👁️ Overseer V1.7
 
 A Discord AI administrator and moderator built around **Gemini**, **Discord.js**, and a persistent local **SQLite** database.
 
@@ -15,7 +15,8 @@ Overseer is designed to act as a server's AI operations layer: it can answer mem
 - Server/member/role/permission context can be supplied to the AI
 - Tool-based actions for supported server-management tasks
 - Gemini quota/rate-limit protection with friendly errors
-- Local routing for simple server questions to save Gemini requests
+- Expanded local routing for simple server questions to save Gemini requests
+- Session request counters and admin diagnostics
 
 ### 🛡️ Moderation
 - Warnings and moderation records
@@ -53,6 +54,7 @@ Overseer is designed to act as a server's AI operations layer: it can answer mem
 - AutoMod configuration
 - Logging and operational settings
 - `/overseer-status` with AI availability/cooldown information
+- `/overseer-diagnostics` for admin runtime health checks
 - `/overseer-report`
 
 ## 📋 Commands
@@ -168,7 +170,7 @@ Then test natural-language messages beginning with `Overseer`, simple local ques
 
 ## 📦 Versioning
 
-Current version: **1.6.0**
+Current version: **1.7.0**
 
 See `CHANGELOG.md` for the release history.
 
