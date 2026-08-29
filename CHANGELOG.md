@@ -1,5 +1,19 @@
 # Overseer changelog
 
+## 1.6.0
+
+- Added Gemini quota/rate-limit protection with a temporary cooldown after quota errors.
+- Added friendlier AI outage/quota messages instead of exposing raw API failures to members.
+- Added local request routing for common deterministic questions (member count, the user's roles, permissions, channel count, and identity) to save Gemini requests.
+- `/overseer-status` now reports AI availability/cooldown state.
+- Added `src/runtime.js` for AI runtime health and request routing.
+- Updated startup version, README, changelog, package version and validation checks.
+
+### Upgrade
+
+Run `update.bat`, `npm run check`, then `npm start`. No slash-command redeploy is required.
+
+
 ## 1.5.0
 
 - Added a member-facing ticket opener with an **Open Ticket** button.
