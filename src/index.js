@@ -10,7 +10,6 @@ const intelligence = require("./server-intelligence");
 const tickets = require("./tickets");
 const runtime = require("./runtime");
 const proactive = require("./proactive");
-const proactive = require("./proactive");
 
 if (!process.env.DISCORD_TOKEN || !process.env.DISCORD_CLIENT_ID || !process.env.GEMINI_API_KEY) {
   throw new Error("Missing DISCORD_TOKEN, DISCORD_CLIENT_ID or GEMINI_API_KEY in .env");
