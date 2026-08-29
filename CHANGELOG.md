@@ -1,88 +1,83 @@
 # Overseer changelog
 
-## 1.9.0 — Moderation Intelligence
+## 2.0.0 — Proactive Intelligence Major Update
 
-- Added `/warnings history` to inspect a member's warning history.
-- Added `/warnings recent` for recent moderation activity.
-- Added `/warnings leaderboard` to identify repeated offenders.
-- Added `/warnings clear` for authorised staff to clear a member's warning history.
-- Added warning-count based escalation guidance for staff review.
-- Added database helpers for per-member warning counts and warning clearing.
-- Updated command deployment, README, package version and VERSION marker.
+### Proactive monitoring
+- Added proactive join-flood detection for potential raids or unusual invite spikes.
+- Added server-wide message activity spike detection.
+- Added persistent proactive alert history with severity levels.
+- Added configurable proactive intelligence enable/disable controls.
+- Added configurable join-flood and activity-spike thresholds in the server settings layer.
+
+### Activity intelligence
+- Added persistent per-member message activity tracking.
+- Added most-active-member reporting.
+- Expanded event recording for joins, leaves, edits and deletions.
+- Added richer local intelligence reports combining warnings, AutoMod incidents, proactive alerts and event activity.
+
+### Scheduled reporting
+- Added daily and weekly automatic intelligence reports.
+- Added configurable destination channels.
+- Added configurable UTC delivery hours.
+- Added persistent schedule state so reports do not duplicate after restarts.
+
+### Moderation intelligence
+- Added /overseer-cases recent for audit/case review.
+- Added /overseer-cases member for per-member case history.
+- Added /overseer-cases stats for action statistics.
+- Expanded the foundation for a unified moderation timeline.
+
+### New commands
+- /overseer-intelligence status
+- /overseer-intelligence enable
+- /overseer-intelligence disable
+- /overseer-intelligence alerts
+- /overseer-intelligence report
+- /overseer-intelligence schedule
+- /overseer-cases recent
+- /overseer-cases member
+- /overseer-cases stats
 
 ### Upgrade
 Run `update.bat`, `npm run check`, `npm run deploy`, then `npm start`.
 
+## 1.9.0 — Moderation Intelligence
+
+- Added warning history, recent warnings, warning leaderboards and warning clearing.
+- Added warning-count based escalation guidance.
+- Added moderation database helpers and staff-facing warning intelligence.
+
 ## 1.8.0 — Moderation & Server Intelligence
 
-- Added configured server activity logging.
-- Added member join and leave logs.
-- Added message edit logging with before/after previews.
-- Added deleted-message logging with available content.
-- Added Discord partial support for more reliable edit/delete events.
-- Added console diagnostics for logging failures.
-- Added database audit records for activity events.
-- Added foundations for warning intelligence and server event statistics.
-- Fixed activity logging integration issues discovered during live Discord testing.
+- Added member join/leave logs and message edit/delete logs.
+- Added Discord partial support and activity audit records.
+- Fixed live Discord integration issues discovered during testing.
 
 ## 1.7.0 — Runtime Intelligence & Diagnostics
 
-- Expanded local routing for deterministic server questions.
-- Added flexible role and permission question detection.
-- Added local answers for member, role, channel and server-owner information.
-- Added AI and local request counters.
-- Added runtime uptime tracking.
-- Added `/overseer-diagnostics`.
-- Added Gemini availability and cooldown diagnostics.
-- Fixed command deployment and diagnostics handler routing issues discovered during testing.
+- Expanded local question routing.
+- Added AI/local request counters and runtime uptime.
+- Added /overseer-diagnostics.
 
 ## 1.6.0 — AI Resilience
 
-- Added Gemini quota and rate-limit protection.
-- Added temporary cooldown handling after quota failures.
-- Added friendly AI outage messages instead of exposing raw API failures.
-- Added local routing for simple deterministic server questions.
-- Expanded `/overseer-status` with AI health information.
-- Added runtime health infrastructure.
+- Added Gemini quota/rate-limit protection and friendly cooldown handling.
 
 ## 1.5.0 — Natural Interaction
 
-- Added natural-language activation by addressing Overseer in normal chat.
-- Kept the `/overseer` slash command available.
-- Improved startup and runtime behaviour.
-- Expanded ticket support behaviour and AI ticket assistance.
-- Continued improving server-management workflow reliability.
+- Added normal-chat activation by addressing Overseer directly while keeping /overseer.
 
 ## 1.4.0 — Update & Validation Foundation
 
-- Added the GitHub-based update workflow.
-- Added `update.bat` support for pulling future releases.
-- Added local validation through `npm run check`.
-- Added automatic syntax/validation checks in the repository.
-- Added version tracking and early release documentation improvements.
+- Added GitHub updates, update.bat workflow, validation and version tracking.
 
 ## 1.3.0 — Core Administration Expansion
 
-- Established the GitHub repository workflow for Overseer.
-- Added richer server setup infrastructure.
-- Expanded control-panel functionality.
-- Added ticket infrastructure and ticket opener support.
-- Added moderation tooling, confirmations and server memory.
-- Added giveaways and configurable AutoMod foundations.
-- Improved natural-language AI administration and Discord permission awareness.
-- Added persistent SQLite storage for server configuration and state.
+- Expanded setup, control panel, tickets, moderation, confirmations, memory, giveaways, AutoMod and SQLite persistence.
 
 ## 1.2.0 and earlier — Original Overseer Foundation
 
-- Initial Discord bot and Gemini AI integration.
-- `/overseer` AI command.
-- Core moderation and administration actions.
-- Role and permission awareness.
-- Server context for AI responses.
-- Control-panel foundations.
-- Confirmation safeguards for sensitive actions.
-- Persistent configuration groundwork.
+- Initial Discord/Gemini AI administrator, moderation, permissions and server context.
 
 ---
-
-This changelog was reconstructed from the Overseer repository history and implemented feature set. From V1.9 onward, every release should be added here as part of the update.
+Every release is documented here as part of Overseer's release process.
