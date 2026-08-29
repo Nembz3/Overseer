@@ -82,7 +82,7 @@ const setup = new SlashCommandBuilder()
   .setDescription("Configure Overseer server infrastructure")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild.toString());
 
-const commands = [overseer, panel, status, report, memory, confirm, setup, ticket, giveaway, automod].map(x => x.toJSON());
+const commands = [overseer, panel, diagnostics, status, report, memory, confirm, setup, ticket, giveaway, automod].map(x => x.toJSON());
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
 (async () => {
@@ -90,5 +90,5 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
     ? Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID, process.env.DISCORD_GUILD_ID)
     : Routes.applicationCommands(process.env.DISCORD_CLIENT_ID);
   await rest.put(route, { body: commands });
-  console.log("Overseer V1.5.0 commands deployed.");
+  console.log("Overseer V1.7.0 commands deployed.");
 })().catch(console.error);
