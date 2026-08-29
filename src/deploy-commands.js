@@ -16,6 +16,17 @@ const diagnostics = new SlashCommandBuilder()
   .setDescription("View Overseer runtime diagnostics")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild.toString());
 
+const warnings = new SlashCommandBuilder()
+  .setName("warnings")
+  .setDescription("View and manage member warning intelligence")
+  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild.toString())
+  .addSubcommand(s => s.setName("history").setDescription("View a member's warning history")
+    .addUserOption(o => o.setName("member").setDescription("Member to inspect").setRequired(true)))
+  .addSubcommand(s => s.setName("leaderboard").setDescription("Show members with the most warnings"))
+  .addSubcommand(s => s.setName("recent").setDescription("Show recent server warnings"))
+  .addSubcommand(s => s.setName("clear").setDescription("Clear a member's warning history")
+    .addUserOption(o => o.setName("member").setDescription("Member to clear").setRequired(true)));
+
 const ticket = new SlashCommandBuilder()
   .setName("ticket")
   .setDescription("Open or manage an Overseer support ticket")
@@ -87,7 +98,7 @@ const setup = new SlashCommandBuilder()
   .setDescription("Configure Overseer server infrastructure")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild.toString());
 
-const commands = [overseer, panel, diagnostics, status, report, memory, confirm, setup, ticket, giveaway, automod].map(x => x.toJSON());
+const commands = [overseer, panel, diagnostics, status, report, memory, warnings, confirm, setup, ticket, giveaway, automod].map(x => x.toJSON());
 const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
 
 (async () => {
@@ -95,5 +106,5 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
     ? Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID, process.env.DISCORD_GUILD_ID)
     : Routes.applicationCommands(process.env.DISCORD_CLIENT_ID);
   await rest.put(route, { body: commands });
-  console.log("Overseer V1.7.0 commands deployed.");
+  console.log("Overseer V1.9.0 commands deployed.");
 })().catch(console.error);
