@@ -1,6 +1,6 @@
 {
-  "name": "overseer-v1.8.0",
-  "version": "1.8.0",
+  "name": "overseer-v1.9.0",
+  "version": "1.9.0",
   "description": "Overseer AI Discord administrator with Gemini, Smart AutoMod, server intelligence, AI tickets and persistent operations tooling",
   "main": "src/index.js",
   "scripts": {
