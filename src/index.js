@@ -24,7 +24,7 @@ const client = new Client({
   partials: [Partials.Message, Partials.Channel, Partials.GuildMember, Partials.User]
 });
 
-client.once(Events.ClientReady, c => console.log(`🟢 Overseer V1.8.0 online as ${c.user.tag}`));
+client.once(Events.ClientReady, c => console.log(`🟢 Overseer V1.9.0 online as ${c.user.tag}`));
 
 async function sendLog(guild, embed) {
   const s = db.settings(guild.id);
@@ -136,6 +136,7 @@ client.on(Events.InteractionCreate, async interaction => {
       if (interaction.commandName === "overseer-status") return await handleStatus(interaction);
       if (interaction.commandName === "overseer-report") return await handleReport(interaction);
       if (interaction.commandName === "overseer-memory") return await handleMemory(interaction);
+      if (interaction.commandName === "warnings") return await handleWarnings(interaction);
     }
     if (interaction.isButton() && interaction.customId === "ticket_open") return await handleTicketButton(interaction);
     if (interaction.isButton() && interaction.customId === "ticket_close") return await handleTicketCloseButton(interaction);
@@ -333,6 +334,38 @@ async function handleReport(i) {
   const incidents = db.automodIncidents(i.guild.id, 100).filter(x => new Date(x.created_at).getTime() >= sinceDate.getTime()).length;
   const events = counts.length ? counts.map(x => `• ${x.event_type}: **${x.n}**`).join("\n") : "No recorded events.";
   return i.reply({ content: `📊 **Overseer Server Report — ${days} day${days === 1 ? "" : "s"}**\n\nMembers: **${i.guild.memberCount}**\nWarnings recorded: **${db.memberWarningsCount(i.guild.id)}**\nAutoMod incidents: **${incidents}**\nTickets: **${tickets}**\nGiveaways: **${giveaways}**\n\n**Events**\n${events}`.slice(0, 3900), flags: MessageFlags.Ephemeral });
+}
+
+async function handleWarnings(i) {
+  if (!staff(i.member)) return i.reply({ content: "❌ You need Manage Server.", flags: MessageFlags.Ephemeral });
+  const sub = i.options.getSubcommand();
+  if (sub === "history") {
+    const user = i.options.getUser("member", true);
+    const rows = db.warnings(i.guild.id, user.id, 10);
+    if (!rows.length) return i.reply({ content: `🟢 **${user.tag}** has no recorded warnings.`, flags: MessageFlags.Ephemeral });
+    const count = db.warningCount(i.guild.id, user.id);
+    const lines = rows.map(w => `#${w.id} • <t:${Math.floor(new Date(w.created_at + "Z").getTime()/1000)}:R> • ${w.reason || "No reason"}`);
+    const escalation = count >= 5 ? "🔴 High warning count — review for stronger staff action." : count >= 3 ? "🟠 Repeated warnings — consider a timeout or closer monitoring." : "🟡 Monitor for repeated behaviour.";
+    return i.reply({ content: `⚠️ **Warning history for ${user.tag}** — ${count} total\n\n${lines.join("\n")}\n\n${escalation}`, flags: MessageFlags.Ephemeral });
+  }
+  if (sub === "leaderboard") {
+    const rows = db.warningLeaders(i.guild.id, 10);
+    if (!rows.length) return i.reply({ content: "🟢 No warnings have been recorded yet.", flags: MessageFlags.Ephemeral });
+    const lines = rows.map((r,n) => `**${n+1}.** <@${r.user_id}> — **${r.n}** warning${r.n===1?"":"s"}`);
+    return i.reply({ content: `📊 **Warning Leaderboard**\n\n${lines.join("\n")}`, flags: MessageFlags.Ephemeral });
+  }
+  if (sub === "recent") {
+    const rows = db.recentWarnings(i.guild.id, 10);
+    if (!rows.length) return i.reply({ content: "🟢 No warnings have been recorded yet.", flags: MessageFlags.Ephemeral });
+    const lines = rows.map(w => `#${w.id} • <@${w.user_id}> • ${w.reason || "No reason"}`);
+    return i.reply({ content: `🕒 **Recent Warnings**\n\n${lines.join("\n")}`, flags: MessageFlags.Ephemeral });
+  }
+  if (sub === "clear") {
+    const user = i.options.getUser("member", true);
+    const removed = db.clearWarnings(i.guild.id, user.id);
+    db.log(i.guild.id, i.user.id, user.id, "WARNINGS_CLEARED", `${removed} warning(s) removed`);
+    return i.reply({ content: `✅ Cleared **${removed}** warning${removed===1?"":"s"} for ${user.tag}.`, flags: MessageFlags.Ephemeral });
+  }
 }
 
 async function handleMemory(i) {
