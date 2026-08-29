@@ -1,6 +1,6 @@
 require("dotenv").config();
 const {
-  Client, GatewayIntentBits, Events, EmbedBuilder, ActionRowBuilder,
+  Client, GatewayIntentBits, Events, Partials, EmbedBuilder, ActionRowBuilder,
   ButtonBuilder, ButtonStyle, PermissionFlagsBits, ChannelType, MessageFlags
 } = require("discord.js");
 const { ask } = require("./ai");
@@ -20,16 +20,19 @@ const client = new Client({
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent
-  ]
+  ],
+  partials: [Partials.Message, Partials.Channel, Partials.GuildMember, Partials.User]
 });
 
 client.once(Events.ClientReady, c => console.log(`🟢 Overseer V1.8.0 online as ${c.user.tag}`));
 
 async function sendLog(guild, embed) {
   const s = db.settings(guild.id);
-  if (!s.log_channel_id) return;
-  const channel = guild.channels.cache.get(s.log_channel_id) || await guild.channels.fetch(s.log_channel_id).catch(() => null);
-  if (channel?.isTextBased()) await channel.send({ embeds: [embed] }).catch(() => {});
+  if (!s.log_channel_id) { console.warn(`[Overseer Logs] No log channel configured for ${guild.name}`); return false; }
+  const channel = guild.channels.cache.get(s.log_channel_id) || await guild.channels.fetch(s.log_channel_id).catch(error => { console.error("[Overseer Logs] Could not fetch log channel:", error); return null; });
+  if (!channel?.isTextBased()) { console.error(`[Overseer Logs] Configured channel ${s.log_channel_id} is missing or not text-based.`); return false; }
+  try { await channel.send({ embeds: [embed] }); return true; }
+  catch (error) { console.error("[Overseer Logs] Failed to send log:", error); return false; }
 }
 
 function staff(member) {
@@ -101,6 +104,7 @@ client.on(Events.GuildMemberRemove, async member => {
 });
 
 client.on(Events.MessageDelete, async message => {
+  if (message.partial) await message.fetch().catch(() => {});
   if (!message.guild || message.author?.bot) return;
   intelligence.record(message.guild.id, "message_delete", message.author?.id || null, String(message.channel?.id || ""));
   const description = `🗑️ **Message deleted**\nChannel: <#${message.channel.id}>\nAuthor: **${message.author?.tag || "Unknown (message was not cached)"}**${message.content ? `\n\n> ${message.content.slice(0, 800)}` : ""}`;
@@ -108,6 +112,7 @@ client.on(Events.MessageDelete, async message => {
 });
 
 client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
+  if (newMessage.partial) await newMessage.fetch().catch(() => {});
   if (!newMessage.guild || newMessage.author?.bot) return;
   if (oldMessage.partial) await oldMessage.fetch().catch(() => {});
   if (newMessage.partial) await newMessage.fetch().catch(() => {});
@@ -204,6 +209,7 @@ async function handleSetup(i) {
   const modChannel = existingMod || await i.guild.channels.create({ name: "mod-logs", type: ChannelType.GuildText, reason: "Overseer setup" });
   db.update(i.guild.id, { ticket_category_id: category.id, log_channel_id: logChannel.id, mod_channel_id: modChannel.id });
   db.log(i.guild.id, i.user.id, null, "SETUP", "Created/configured Overseer infrastructure");
+  await sendLog(i.guild, new EmbedBuilder().setDescription("🧪 **Overseer logging test successful.** Activity logs are configured and this channel is active.").setTimestamp());
   const ticketPanel = i.guild.channels.cache.find(c => c.name === "open-a-ticket" && c.type === ChannelType.GuildText)
     || await i.guild.channels.create({ name: "open-a-ticket", type: ChannelType.GuildText, reason: "Overseer ticket panel" });
   await ticketPanel.send(tickets.ticketPanelPayload()).catch(() => {});
