@@ -1,12 +1,12 @@
 {
-  "name": "overseer-v1.6.0",
-  "version": "1.6.0",
+  "name": "overseer-v1.7.0",
+  "version": "1.7.0",
   "description": "Overseer AI Discord administrator with Gemini, Smart AutoMod, server intelligence, AI tickets and persistent operations tooling",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
     "deploy": "node src/deploy-commands.js",
-    "check": "node --check src/index.js && node --check src/ai.js && node --check src/automod.js && node --check src/database.js && node --check src/deploy-commands.js && node --check src/server-intelligence.js && node --check src/tools.js && node --check src/tickets.js && node --check src/runtime.js"
+    "check": "node --check src/index.js && node --check src/ai.js && node --check src/automod.js && node --check src/database.js && node --check src/deploy-commands.js && node --check src/server-intelligence.js && node --check src/tools.js && node --check src/tickets.js && node --check src/runtime.js && node --check src/runtime.js"
   },
   "engines": {
     "node": ">=20"
