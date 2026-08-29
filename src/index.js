@@ -554,6 +554,33 @@ async function handleUpdate(i) {
     const version = updates.readVersion();
     const state = updates.readState();
 
+    const lastResult = state.lastResult;
+
+    let resultText = "No update activity recorded yet.";
+
+    if (lastResult) {
+      const action = lastResult.action || "Unknown";
+      const status = lastResult.ok
+        ? lastResult.skipped
+          ? "Already up to date"
+          : "Successful"
+        : "Failed";
+
+      const beforeCommit =
+        lastResult.before?.commit?.slice(0, 7) || "Unknown";
+
+      const afterCommit =
+        lastResult.after?.commit?.slice(0, 7) ||
+        lastResult.rolledBackTo?.commit?.slice(0, 7) ||
+        "Unknown";
+
+      resultText =
+        `Action: **${action}**\n` +
+        `Status: **${status}**\n` +
+        `Before: \`${beforeCommit}\`\n` +
+        `After: \`${afterCommit}\``;
+    }
+
     return i.reply({
       embeds: [
         new EmbedBuilder()
@@ -581,30 +608,25 @@ async function handleUpdate(i) {
               inline: false
             },
             {
-  name: "Last Result",
-  value: state.lastResult
-    ? `Action: ${state.lastResult.action || "Unknown"}\nStatus: ${
-        state.lastResult.ok
-          ? state.lastResult.skipped
-            ? "Already up to date"
-            : "Successful"
-          : "Failed"
-      }`
-    : "No update checks yet",
-  inline: false
-}
+              name: "Last Result",
+              value: resultText,
+              inline: false
+            }
           )
-      ]
+      ],
+      flags: MessageFlags.Ephemeral
     });
   }
 
   if (subcommand === "check") {
-    await i.deferReply({ flags: MessageFlags.Ephemeral });
+    await i.deferReply({
+      flags: MessageFlags.Ephemeral
+    });
 
     const result = updates.checkForUpdate();
 
     const description = result.updateAvailable
-      ? `🆕 Update available!\n\nCurrent: **V${result.currentVersion}**\nA newer GitHub commit was found.`
+      ? `🆕 Update available!\n\nCurrent version: **V${result.currentVersion}**\nA newer GitHub commit is available.`
       : `✅ Overseer is already up to date.\n\nCurrent version: **V${result.currentVersion}**`;
 
     return i.editReply({
@@ -622,6 +644,11 @@ async function handleUpdate(i) {
               name: "Remote Commit",
               value: `\`${result.remoteCommit?.slice(0, 7) || "Unknown"}\``,
               inline: true
+            },
+            {
+              name: "Auto Update",
+              value: result.autoUpdate ? "Enabled" : "Disabled",
+              inline: true
             }
           )
       ]
@@ -633,7 +660,9 @@ async function handleUpdate(i) {
 
     if (!check.updateAvailable) {
       return i.reply({
-        content: `✅ Overseer is already up to date (V${check.currentVersion}).`,
+        content:
+          `✅ Overseer is already up to date (V${check.currentVersion}).\n` +
+          `No update has been queued.`,
         flags: MessageFlags.Ephemeral
       });
     }
@@ -641,7 +670,10 @@ async function handleUpdate(i) {
     updates.queueUpdate("install");
 
     return i.reply({
-      content: "🔄 Update queued successfully. Overseer will install the update through the updater system.",
+      content:
+        "🔄 Update queued successfully.\n\n" +
+        "Overseer will now update in the background. " +
+        "The bot may briefly go offline while the update is installed and PM2 restarts it.",
       flags: MessageFlags.Ephemeral
     });
   }
@@ -650,7 +682,10 @@ async function handleUpdate(i) {
     updates.queueUpdate("rollback");
 
     return i.reply({
-      content: "⏪ Rollback queued successfully. The updater will restore the previous version if a backup is available.",
+      content:
+        "⏪ Rollback queued successfully.\n\n" +
+        "Overseer will restore the latest available backup in the background. " +
+        "The bot may briefly go offline while the rollback is applied and PM2 restarts it.",
       flags: MessageFlags.Ephemeral
     });
   }
@@ -667,15 +702,34 @@ async function handleUpdate(i) {
 
     const historyText = items
       .map((entry, index) => {
-        return `${index + 1}. **${entry.mode || entry.action || "Update"}** — ${entry.timestamp || entry.at || "Unknown time"}`;
+        const action = entry.action || entry.mode || "Update";
+
+        const status = entry.ok
+          ? entry.skipped
+            ? "Skipped"
+            : "Successful"
+          : "Failed";
+
+        const commit =
+          entry.after?.commit?.slice(0, 7) ||
+          entry.rolledBackTo?.commit?.slice(0, 7) ||
+          "Unknown";
+
+        const time = entry.at || entry.timestamp || "Unknown time";
+
+        return (
+          `**${index + 1}. ${action.toUpperCase()} — ${status}**\n` +
+          `Commit: \`${commit}\`\n` +
+          `Time: ${time}`
+        );
       })
-      .join("\n");
+      .join("\n\n");
 
     return i.reply({
       embeds: [
         new EmbedBuilder()
           .setTitle("📜 Overseer Update History")
-          .setDescription(historyText)
+          .setDescription(historyText.slice(0, 4096))
       ],
       flags: MessageFlags.Ephemeral
     });
