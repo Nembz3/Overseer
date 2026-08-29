@@ -6,6 +6,7 @@ const intelligence = require("./server-intelligence");
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+const runtime = require("./runtime");
 
 function geminiTools() {
   return [{ functionDeclarations: tools.map(t => ({
@@ -47,14 +48,18 @@ SAFETY:
 
 async function ask({ guild, actorId, text }) {
   if (!text?.trim()) return "What would you like me to do?";
+  if (!runtime.aiAvailable()) return "⏳ Overseer AI is temporarily cooling down because the Gemini quota/rate limit was reached. Please try again later.";
   const s = db.settings(guild.id);
   if (!s.ai_enabled) return "🔴 Overseer AI is currently disabled in this server.";
 
-  let response = await ai.models.generateContent({
+  let response;
+  try {
+    response = await ai.models.generateContent({
     model: MODEL,
     contents: [{ role: "user", parts: [{ text: `${prompt(guild)}\nUSER (${actorId}): ${text.trim()}` }] }],
     config: { tools: geminiTools() }
-  });
+    });
+  } catch (e) { runtime.markAiError(e); throw e; }
 
   for (let round = 0; round < 5; round++) {
     const calls = response.functionCalls || [];
@@ -85,6 +90,7 @@ async function ask({ guild, actorId, text }) {
     });
   }
 
+  runtime.clearAiError();
   return "I couldn't safely complete that request.";
 }
 
