@@ -15,7 +15,8 @@ const ticket = new SlashCommandBuilder()
   .setName("ticket")
   .setDescription("Open or manage an Overseer support ticket")
   .addSubcommand(s => s.setName("open").setDescription("Open a private support ticket"))
-  .addSubcommand(s => s.setName("close").setDescription("Close the current ticket"));
+  .addSubcommand(s => s.setName("close").setDescription("Close the current ticket"))
+  .addSubcommand(s => s.setName("panel").setDescription("Post a ticket opener panel"));
 
 const giveaway = new SlashCommandBuilder()
   .setName("giveaway")
@@ -89,5 +90,5 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
     ? Routes.applicationGuildCommands(process.env.DISCORD_CLIENT_ID, process.env.DISCORD_GUILD_ID)
     : Routes.applicationCommands(process.env.DISCORD_CLIENT_ID);
   await rest.put(route, { body: commands });
-  console.log("Overseer V1.3.0 commands deployed.");
+  console.log("Overseer V1.5.0 commands deployed.");
 })().catch(console.error);
