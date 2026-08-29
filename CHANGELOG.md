@@ -1,5 +1,19 @@
 # Overseer changelog
 
+## 1.7.0
+
+- Made local question routing more flexible, including natural variations of role and permission questions.
+- Added local answers for server role count and server owner questions.
+- Added session counters for Gemini-backed and local requests.
+- Added uptime tracking to runtime health.
+- Added `/overseer-diagnostics` for administrators with bot readiness, uptime, AI state, request counters, permission checks and ticket configuration status.
+- Updated documentation and versioning.
+
+### Upgrade
+
+Run `update.bat`, `npm run check`, `npm run deploy`, then `npm start`.
+
+
 ## 1.6.0
 
 - Added Gemini quota/rate-limit protection with a temporary cooldown after quota errors.
