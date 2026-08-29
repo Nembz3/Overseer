@@ -1,4 +1,4 @@
-# 👁️ Overseer V1.7
+# 👁️ Overseer V1.8
 
 A Discord AI administrator and moderator built around **Gemini**, **Discord.js**, and a persistent local **SQLite** database.
 
@@ -170,7 +170,7 @@ Then test natural-language messages beginning with `Overseer`, simple local ques
 
 ## 📦 Versioning
 
-Current version: **1.7.0**
+Current version: **1.8.0**
 
 See `CHANGELOG.md` for the release history.
 
