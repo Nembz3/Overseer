@@ -1,6 +1,6 @@
 {
   "name": "overseer-v2.1.0",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Overseer AI Discord administrator with Gemini, Smart AutoMod, server intelligence, AI tickets and persistent operations tooling",
   "main": "src/index.js",
   "scripts": {
