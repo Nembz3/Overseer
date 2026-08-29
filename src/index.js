@@ -9,6 +9,7 @@ const automod = require("./automod");
 const intelligence = require("./server-intelligence");
 const tickets = require("./tickets");
 const runtime = require("./runtime");
+const proactive = require("./proactive");
 
 if (!process.env.DISCORD_TOKEN || !process.env.DISCORD_CLIENT_ID || !process.env.GEMINI_API_KEY) {
   throw new Error("Missing DISCORD_TOKEN, DISCORD_CLIENT_ID or GEMINI_API_KEY in .env");
@@ -24,7 +25,7 @@ const client = new Client({
   partials: [Partials.Message, Partials.Channel, Partials.GuildMember, Partials.User]
 });
 
-client.once(Events.ClientReady, c => console.log(`🟢 Overseer V1.9.0 online as ${c.user.tag}`));
+client.once(Events.ClientReady, c => console.log(`🟢 Overseer V2.0.0 online as ${c.user.tag}`));
 
 async function sendLog(guild, embed) {
   const s = db.settings(guild.id);
@@ -44,6 +45,7 @@ const ticketAiCooldown = new Map();
 client.on(Events.MessageCreate, async message => {
   if (message.author.bot || !message.guild || !client.user) return;
   const s = db.settings(message.guild.id);
+  proactive.onMessage(message, sendLog).catch(e => console.error("Proactive message monitor error:", e));
   if (s.automod_enabled) {
     automod.handle(message).catch(e => console.error("AutoMod error:", e));
   }
@@ -95,11 +97,14 @@ client.on(Events.MessageCreate, async message => {
 // V1.8 activity logging
 client.on(Events.GuildMemberAdd, async member => {
   db.log(member.guild.id, null, member.id, "MEMBER_JOIN", member.user.tag);
+  db.recordEvent(member.guild.id, "MEMBER_JOIN", member.id, member.user.tag);
+  proactive.onMemberJoin(member, sendLog).catch(e => console.error("Proactive join monitor error:", e));
   await sendLog(member.guild, new EmbedBuilder().setDescription(`📥 **Member joined:** ${member.user.tag}`).setTimestamp());
 });
 
 client.on(Events.GuildMemberRemove, async member => {
   db.log(member.guild.id, null, member.id, "MEMBER_LEAVE", member.user?.tag || "Unknown");
+  db.recordEvent(member.guild.id, "MEMBER_LEAVE", member.id, member.user?.tag || "Unknown");
   await sendLog(member.guild, new EmbedBuilder().setDescription(`📤 **Member left:** ${member.user?.tag || member.id}`).setTimestamp());
 });
 
@@ -107,6 +112,7 @@ client.on(Events.MessageDelete, async message => {
   if (message.partial) await message.fetch().catch(() => {});
   if (!message.guild || message.author?.bot) return;
   db.log(message.guild.id, null, message.author?.id || null, "MESSAGE_DELETE", String(message.channel?.id || ""));
+  db.recordEvent(message.guild.id, "MESSAGE_DELETE", message.author?.id || null, String(message.channel?.id || ""));
   const description = `🗑️ **Message deleted**\nChannel: <#${message.channel.id}>\nAuthor: **${message.author?.tag || "Unknown (message was not cached)"}**${message.content ? `\n\n> ${message.content.slice(0, 800)}` : ""}`;
   await sendLog(message.guild, new EmbedBuilder().setDescription(description).setTimestamp());
 });
@@ -118,6 +124,7 @@ client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
   if (newMessage.partial) await newMessage.fetch().catch(() => {});
   if (oldMessage.content === newMessage.content) return;
   db.log(newMessage.guild.id, null, newMessage.author?.id || null, "MESSAGE_EDIT", String(newMessage.channel?.id || ""));
+  db.recordEvent(newMessage.guild.id, "MESSAGE_EDIT", newMessage.author?.id || null, String(newMessage.channel?.id || ""));
   const description = `✏️ **Message edited**\nChannel: <#${newMessage.channel.id}>\nAuthor: **${newMessage.author?.tag || "Unknown"}**\n\n**Before:** ${String(oldMessage.content || "[unavailable]").slice(0, 500)}\n**After:** ${String(newMessage.content || "[empty]").slice(0, 500)}`;
   await sendLog(newMessage.guild, new EmbedBuilder().setDescription(description).setTimestamp());
 });
@@ -137,6 +144,8 @@ client.on(Events.InteractionCreate, async interaction => {
       if (interaction.commandName === "overseer-report") return await handleReport(interaction);
       if (interaction.commandName === "overseer-memory") return await handleMemory(interaction);
       if (interaction.commandName === "warnings") return await handleWarnings(interaction);
+      if (interaction.commandName === "overseer-intelligence") return await handleIntelligence(interaction);
+      if (interaction.commandName === "overseer-cases") return await handleCases(interaction);
     }
     if (interaction.isButton() && interaction.customId === "ticket_open") return await handleTicketButton(interaction);
     if (interaction.isButton() && interaction.customId === "ticket_close") return await handleTicketCloseButton(interaction);
@@ -336,6 +345,59 @@ async function handleReport(i) {
   return i.reply({ content: `📊 **Overseer Server Report — ${days} day${days === 1 ? "" : "s"}**\n\nMembers: **${i.guild.memberCount}**\nWarnings recorded: **${db.memberWarningsCount(i.guild.id)}**\nAutoMod incidents: **${incidents}**\nTickets: **${tickets}**\nGiveaways: **${giveaways}**\n\n**Events**\n${events}`.slice(0, 3900), flags: MessageFlags.Ephemeral });
 }
 
+async function handleIntelligence(i) {
+  if (!staff(i.member)) return i.reply({ content: "❌ You need Manage Server.", flags: MessageFlags.Ephemeral });
+  const sub = i.options.getSubcommand();
+  const settings = db.settings(i.guild.id);
+  if (sub === "status") {
+    const rs = db.reportSettings(i.guild.id);
+    const alerts = db.recentProactiveAlerts(i.guild.id, 5);
+    const lines = alerts.length ? alerts.map(a => `• ${a.type} — severity ${a.severity}/5`).join("\n") : "No proactive alerts yet.";
+    return i.reply({ content: `🧠 **Overseer Proactive Intelligence**\n\nStatus: **${settings.proactive_enabled ? "🟢 Enabled" : "🔴 Disabled"}**\nJoin flood threshold: **${settings.join_flood_threshold || 5}/min**\nActivity spike threshold: **${settings.activity_spike_threshold || 80} messages/min**\nScheduled reports: **${rs.enabled ? "Enabled" : "Disabled"}**\n\n**Recent alerts**\n${lines}`, flags: MessageFlags.Ephemeral });
+  }
+  if (sub === "enable") { db.update(i.guild.id,{proactive_enabled:1}); return i.reply({content:"🟢 Proactive intelligence enabled.",flags:MessageFlags.Ephemeral}); }
+  if (sub === "disable") { db.update(i.guild.id,{proactive_enabled:0}); return i.reply({content:"🔴 Proactive intelligence disabled.",flags:MessageFlags.Ephemeral}); }
+  if (sub === "alerts") {
+    const rows=db.recentProactiveAlerts(i.guild.id,15);
+    const text=rows.length?rows.map(a=>`#${a.id} • **${a.type}** • severity ${a.severity}/5 • ${a.details}`).join("\n"):"No proactive alerts.";
+    return i.reply({content:`🚨 **Proactive Alerts**\n\n${text}`.slice(0,3900),flags:MessageFlags.Ephemeral});
+  }
+  if (sub === "report") {
+    const days=i.options.getInteger("days",true);
+    const r=proactive.buildReport(i.guild,days);
+    return i.reply({content:`📊 **Proactive Intelligence Report — ${days} day${days===1?"":"s"}**\n\nWarnings: **${r.warnings}**\nAutoMod incidents: **${r.incidents}**\nProactive alerts: **${r.alerts}**\n\n**Events**\n${r.eventText}\n\n**Most active members**\n${r.activeText}`.slice(0,3900),flags:MessageFlags.Ephemeral});
+  }
+  if (sub === "schedule") {
+    const channel=i.options.getChannel("channel",true);
+    const frequency=i.options.getString("frequency",true);
+    const hour=i.options.getInteger("hour",true);
+    db.updateReportSettings(i.guild.id,{channel_id:channel.id,enabled:1,frequency,hour_utc:hour});
+    db.log(i.guild.id,i.user.id,null,"REPORT_SCHEDULE",`${frequency} at ${hour}:00 UTC in #${channel.name}`);
+    return i.reply({content:`⏰ ${frequency[0].toUpperCase()+frequency.slice(1)} intelligence reports scheduled for ${channel} at **${hour}:00 UTC**.`,flags:MessageFlags.Ephemeral});
+  }
+}
+
+async function handleCases(i) {
+  if (!staff(i.member)) return i.reply({ content: "❌ You need Manage Server.", flags: MessageFlags.Ephemeral });
+  const sub=i.options.getSubcommand();
+  if(sub==="recent"){
+    const rows=db.logs(i.guild.id,Number(i.options.getInteger("limit")||15));
+    const text=rows.length?rows.map(x=>`#${x.id} • **${x.action}** • ${x.target_id?`<@${x.target_id}>`:"—"} • ${x.reason||"No details"}`).join("\n"):"No cases recorded.";
+    return i.reply({content:`📁 **Recent Overseer Cases**\n\n${text}`.slice(0,3900),flags:MessageFlags.Ephemeral});
+  }
+  if(sub==="member"){
+    const user=i.options.getUser("member",true);
+    const rows=db.db.prepare("SELECT * FROM logs WHERE guild_id=? AND target_id=? ORDER BY id DESC LIMIT 20").all(i.guild.id,user.id);
+    const text=rows.length?rows.map(x=>`#${x.id} • **${x.action}** • ${x.reason||"No details"}`).join("\n"):"No recorded cases for this member.";
+    return i.reply({content:`📁 **Case history for ${user.tag}**\n\n${text}`.slice(0,3900),flags:MessageFlags.Ephemeral});
+  }
+  if(sub==="stats"){
+    const rows=db.db.prepare("SELECT action,COUNT(*) AS n FROM logs WHERE guild_id=? GROUP BY action ORDER BY n DESC LIMIT 15").all(i.guild.id);
+    const text=rows.length?rows.map(x=>`• ${x.action}: **${x.n}**`).join("\n"):"No cases recorded.";
+    return i.reply({content:`📊 **Overseer Case Statistics**\n\n${text}`,flags:MessageFlags.Ephemeral});
+  }
+}
+
 async function handleWarnings(i) {
   if (!staff(i.member)) return i.reply({ content: "❌ You need Manage Server.", flags: MessageFlags.Ephemeral });
   const sub = i.options.getSubcommand();
@@ -457,9 +519,14 @@ async function handleTicket(i) {
 
 client.on("error", error => console.error("Discord client error:", error));
 process.on("unhandledRejection", error => console.error("Unhandled promise rejection:", error));
+
+setInterval(() => {
+  if (!client.isReady()) return;
+  proactive.runScheduledReports(client, sendLog).catch(e => console.error("Scheduled report error:", e));
+}, 60_000);
 process.on("uncaughtException", error => console.error("Uncaught exception:", error));
 
-console.log("👁️ Connecting Overseer V1.8.0 to Discord...");
+console.log("👁️ Connecting Overseer V2.0.0 to Discord...");
 client.login(process.env.DISCORD_TOKEN).then(() => console.log("🔐 Discord login accepted; waiting for Ready event...")).catch(error => {
   console.error("Failed to log Overseer into Discord:", error);
   process.exitCode = 1;
