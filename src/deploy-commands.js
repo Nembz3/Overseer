@@ -51,21 +51,6 @@ const cases = new SlashCommandBuilder()
   .addSubcommand(s=>s.setName("member").setDescription("View a member's case history")
     .addUserOption(o=>o.setName("member").setDescription("Member to inspect").setRequired(true)))
   .addSubcommand(s=>s.setName("stats").setDescription("View case statistics"));
-
-const intelligence = new SlashCommandBuilder()
-  .setName("overseer-intelligence").setDescription("Manage Overseer's proactive intelligence").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild.toString())
-  .addSubcommand(s=>s.setName("status").setDescription("View proactive intelligence status"))
-  .addSubcommand(s=>s.setName("enable").setDescription("Enable proactive intelligence"))
-  .addSubcommand(s=>s.setName("disable").setDescription("Disable proactive intelligence"))
-  .addSubcommand(s=>s.setName("alerts").setDescription("View recent proactive alerts"))
-  .addSubcommand(s=>s.setName("report").setDescription("Generate an intelligence report").addIntegerOption(o=>o.setName("days").setDescription("Report window").setRequired(true).setMinValue(1).setMaxValue(30)))
-  .addSubcommand(s=>s.setName("schedule").setDescription("Schedule automatic intelligence reports").addChannelOption(o=>o.setName("channel").setDescription("Destination channel").setRequired(true)).addStringOption(o=>o.setName("frequency").setDescription("Report frequency").setRequired(true).addChoices({name:"Daily",value:"daily"},{name:"Weekly",value:"weekly"})).addIntegerOption(o=>o.setName("hour").setDescription("UTC hour (0-23)").setRequired(true).setMinValue(0).setMaxValue(23)));
-const cases = new SlashCommandBuilder()
-  .setName("overseer-cases").setDescription("Review Overseer moderation and audit cases").setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild.toString())
-  .addSubcommand(s=>s.setName("recent").setDescription("View recent cases").addIntegerOption(o=>o.setName("limit").setDescription("Number of cases").setMinValue(1).setMaxValue(50)))
-  .addSubcommand(s=>s.setName("member").setDescription("View a member's case history").addUserOption(o=>o.setName("member").setDescription("Member to inspect").setRequired(true)))
-  .addSubcommand(s=>s.setName("stats").setDescription("View case statistics"));
-
 const ticket = new SlashCommandBuilder()
   .setName("ticket")
   .setDescription("Open or manage an Overseer support ticket")
