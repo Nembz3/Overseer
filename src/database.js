@@ -91,7 +91,10 @@ for (const sql of [
   "ALTER TABLE guild_settings ADD COLUMN automod_ai_review INTEGER DEFAULT 0",
   "ALTER TABLE guild_settings ADD COLUMN ticket_ai_enabled INTEGER DEFAULT 1",
   "ALTER TABLE guild_settings ADD COLUMN ticket_ai_cooldown INTEGER DEFAULT 8",
-  "ALTER TABLE guild_settings ADD COLUMN autonomous_enabled INTEGER DEFAULT 0"
+  "ALTER TABLE guild_settings ADD COLUMN autonomous_enabled INTEGER DEFAULT 0",
+  "ALTER TABLE guild_settings ADD COLUMN proactive_enabled INTEGER DEFAULT 1",
+  "ALTER TABLE guild_settings ADD COLUMN join_flood_threshold INTEGER DEFAULT 5",
+  "ALTER TABLE guild_settings ADD COLUMN activity_spike_threshold INTEGER DEFAULT 80"
 ]) { try { db.exec(sql); } catch (_) {} }
 
 db.exec(`
@@ -160,7 +163,7 @@ function update(guildId, patch) {
   const allowed = new Set([
     "rules","ai_enabled","actions_enabled","confirmations","log_channel_id","mod_channel_id","ticket_category_id","ticket_support_role_id","giveaway_channel_id",
     "automod_enabled","automod_mode","automod_timeout_minutes","automod_spam_threshold","automod_mention_threshold","automod_link_filter","automod_ai_review",
-    "ticket_ai_enabled","ticket_ai_cooldown","autonomous_enabled"
+    "ticket_ai_enabled","ticket_ai_cooldown","autonomous_enabled","proactive_enabled","join_flood_threshold","activity_spike_threshold"
   ]);
   const entries = Object.entries(patch).filter(([k]) => allowed.has(k));
   if (!entries.length) return;
