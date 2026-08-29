@@ -7,6 +7,7 @@ const { ask } = require("./ai");
 const db = require("./database");
 const automod = require("./automod");
 const intelligence = require("./server-intelligence");
+const tickets = require("./tickets");
 
 if (!process.env.DISCORD_TOKEN || !process.env.DISCORD_CLIENT_ID || !process.env.GEMINI_API_KEY) {
   throw new Error("Missing DISCORD_TOKEN, DISCORD_CLIENT_ID or GEMINI_API_KEY in .env");
@@ -95,6 +96,8 @@ client.on(Events.InteractionCreate, async interaction => {
       if (interaction.commandName === "overseer-report") return await handleReport(interaction);
       if (interaction.commandName === "overseer-memory") return await handleMemory(interaction);
     }
+    if (interaction.isButton() && interaction.customId === "ticket_open") return await handleTicketButton(interaction);
+    if (interaction.isButton() && interaction.customId === "ticket_close") return await handleTicketCloseButton(interaction);
     if (interaction.isButton()) return await handleButton(interaction);
   } catch (e) {
     console.error("Interaction error:", e);
@@ -159,7 +162,10 @@ async function handleSetup(i) {
   const modChannel = existingMod || await i.guild.channels.create({ name: "mod-logs", type: ChannelType.GuildText, reason: "Overseer setup" });
   db.update(i.guild.id, { ticket_category_id: category.id, log_channel_id: logChannel.id, mod_channel_id: modChannel.id });
   db.log(i.guild.id, i.user.id, null, "SETUP", "Created/configured Overseer infrastructure");
-  await i.editReply(`✅ **Overseer setup complete.**\n\n🎫 Ticket category: ${category}\n📋 Overseer logs: ${logChannel}\n🛡️ Mod logs: ${modChannel}\n\nUse **/ticket open** to test tickets.`);
+  const ticketPanel = i.guild.channels.cache.find(c => c.name === "open-a-ticket" && c.type === ChannelType.GuildText)
+    || await i.guild.channels.create({ name: "open-a-ticket", type: ChannelType.GuildText, reason: "Overseer ticket panel" });
+  await ticketPanel.send(tickets.ticketPanelPayload()).catch(() => {});
+  await i.editReply(`✅ **Overseer setup complete.**\n\n🎫 Ticket category: ${category}\n🎟️ Ticket opener: ${ticketPanel}\n📋 Overseer logs: ${logChannel}\n🛡️ Mod logs: ${modChannel}\n\nMembers can now click **Open Ticket** in ${ticketPanel}.`);
 }
 
 async function handlePanel(i) {
@@ -300,98 +306,48 @@ async function handleAutomod(i) {
   return i.reply({ content: `🛡️ AutoMod updated.\nStatus: **${latest.automod_enabled ? "Enabled" : "Disabled"}**\nMode: **${latest.automod_mode}**\nSuspicious links: **${latest.automod_link_filter ? "On" : "Off"}**`, flags: MessageFlags.Ephemeral });
 }
 
+async function handleTicketButton(i) {
+  await i.deferReply({ flags: MessageFlags.Ephemeral });
+  try {
+    const result = await tickets.openTicket({ guild: i.guild, user: i.user, member: i.member, db });
+    if (result.existing) return i.editReply(`❌ You already have an open ticket: ${result.existing}`);
+    return i.editReply(`🎫 Ticket created: ${result.channel}`);
+  } catch (e) {
+    console.error("Ticket open error:", e);
+    return i.editReply(`❌ ${e.message}`);
+  }
+}
+
+async function handleTicketCloseButton(i) {
+  try {
+    await tickets.closeTicket({ channel: i.channel, userId: i.user.id, member: i.member, db, guild: i.guild });
+    await i.reply({ content: "🔒 Closing ticket...", flags: MessageFlags.Ephemeral });
+  } catch (e) {
+    return i.reply({ content: `❌ ${e.message}`, flags: MessageFlags.Ephemeral });
+  }
+}
+
 async function handleTicket(i) {
   const sub = i.options.getSubcommand();
-  const s = db.settings(i.guild.id);
+  if (sub === "panel") {
+    if (!staff(i.member)) return i.reply({ content: "❌ You need Manage Server.", flags: MessageFlags.Ephemeral });
+    return i.reply({ content: "🎫 Ticket panel created.", ...tickets.ticketPanelPayload() });
+  }
   if (sub === "close") {
-    const t = db.ticketByChannel(i.channelId);
-    if (!t) return i.reply({ content: "❌ This isn't an Overseer ticket.", flags: MessageFlags.Ephemeral });
-    if (t.opener_id !== i.user.id && !staff(i.member)) return i.reply({ content: "❌ Only the ticket opener or staff can close this ticket.", flags: MessageFlags.Ephemeral });
-    db.closeTicket(i.channelId);
-    await i.reply("🔒 Ticket closed. This channel will be deleted in 5 seconds.");
-    setTimeout(() => i.channel?.delete("Ticket closed").catch(() => {}), 5000);
-    return;
-  }
-
-  const existing = i.guild.channels.cache.find(c => c.type === ChannelType.GuildText && db.ticketByChannel(c.id)?.opener_id === i.user.id && db.ticketByChannel(c.id)?.status === "open");
-  if (existing) return i.reply({ content: `❌ You already have an open ticket: ${existing}`, flags: MessageFlags.Ephemeral });
-
-  if (!s.ticket_category_id) return i.reply({ content: "❌ Tickets aren't configured yet. An administrator needs to configure a ticket category.", flags: MessageFlags.Ephemeral });
-  const support = s.ticket_support_role_id ? i.guild.roles.cache.get(s.ticket_support_role_id) : null;
-  const overwrites = [
-    { id: i.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-    { id: i.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
-    { id: i.guild.members.me.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.ManageChannels] }
-  ];
-  if (support) overwrites.push({ id: support.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
-
-  const channel = await i.guild.channels.create({ name: `ticket-${i.user.username}`.toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 90), type: ChannelType.GuildText, parent: s.ticket_category_id, permissionOverwrites: overwrites, reason: "Overseer ticket" });
-  db.createTicket(i.guild.id, channel.id, i.user.id);
-  db.log(i.guild.id, i.user.id, null, "TICKET_OPEN", channel.id);
-  await i.reply({ content: `🎫 Ticket created: ${channel}`, flags: MessageFlags.Ephemeral });
-  await channel.send(`🎫 Welcome <@${i.user.id}>! A member of staff will help you here.\n\nUse **/ticket close** when the issue is resolved.`);
-}
-
-async function handleGiveaway(i) {
-  const sub = i.options.getSubcommand();
-  if (!staff(i.member)) return i.reply({ content: "❌ You need Manage Server.", flags: MessageFlags.Ephemeral });
-  if (sub === "start") {
-    const prize = i.options.getString("prize", true);
-    const minutes = i.options.getInteger("minutes", true);
-    const winners = i.options.getInteger("winners", true);
-    const ends = Date.now() + minutes * 60000;
-    const msg = await i.reply({ content: `🎉 **GIVEAWAY**\n\nPrize: **${prize}**\nWinners: **${winners}**\nEnds: <t:${Math.floor(ends / 1000)}:R>\n\nReact with 🎉 to enter!`, fetchReply: true });
-    await msg.react("🎉");
-    db.createGiveaway({ guild_id: i.guild.id, channel_id: i.channelId, message_id: msg.id, prize, winners, ends_at: ends });
-    db.log(i.guild.id, i.user.id, null, "GIVEAWAY_START", prize);
-    return;
-  }
-  const messageId = i.options.getString("message_id", true);
-  const row = db.runningGiveaways().find(x => x.message_id === messageId && x.guild_id === i.guild.id);
-  if (!row) return i.reply({ content: "❌ Running giveaway not found.", flags: MessageFlags.Ephemeral });
-  await finishGiveaway(i.guild, row);
-  if (sub === "reroll") return i.reply("🔄 Giveaway rerolled.");
-  return i.reply("🏁 Giveaway ended.");
-}
-
-async function finishGiveaway(guild, row) {
-  const channel = await guild.channels.fetch(row.channel_id).catch(() => null);
-  const message = channel?.isTextBased() ? await channel.messages.fetch(row.message_id).catch(() => null) : null;
-  if (!message) { db.finishGiveaway(row.message_id, []); return; }
-  const reaction = message.reactions.cache.get("🎉");
-  const users = reaction ? await reaction.users.fetch() : new Map();
-  const eligible = [...users.values()].filter(u => !u.bot);
-  const winners = [...eligible].sort(() => Math.random() - 0.5).slice(0, Math.min(row.winners, eligible.length));
-  db.finishGiveaway(row.message_id, winners.map(x => x.id));
-  await message.reply(winners.length ? `🏆 Congratulations ${winners.map(x => `<@${x.id}>`).join(", ")}! You won **${row.prize}**!` : `😔 Nobody entered the giveaway for **${row.prize}**.`).catch(() => {});
-}
-
-setInterval(async () => {
-  for (const row of db.runningGiveaways()) {
-    if (row.ends_at <= Date.now()) {
-      const guild = client.guilds.cache.get(row.guild_id);
-      if (guild) await finishGiveaway(guild, row);
+    try {
+      await tickets.closeTicket({ channel: i.channel, userId: i.user.id, member: i.member, db, guild: i.guild });
+      return i.reply("🔒 Closing ticket...");
+    } catch (e) {
+      return i.reply({ content: `❌ ${e.message}`, flags: MessageFlags.Ephemeral });
     }
   }
-}, 10000);
+  await i.deferReply({ flags: MessageFlags.Ephemeral });
+  try {
+    const result = await tickets.openTicket({ guild: i.guild, user: i.user, member: i.member, db });
+    if (result.existing) return i.editReply(`❌ You already have an open ticket: ${result.existing}`);
+    return i.editReply(`🎫 Ticket created: ${result.channel}`);
+  } catch (e) {
+    return i.editReply(`❌ ${e.message}`);
+  }
+}
 
-client.on(Events.GuildMemberAdd, member => {
-  db.recordEvent(member.guild.id, "MEMBER_JOIN", member.id, member.user.tag);
-});
-client.on(Events.GuildMemberRemove, member => {
-  db.recordEvent(member.guild.id, "MEMBER_LEAVE", member.id, member.user?.tag || member.id);
-});
-client.on(Events.ChannelCreate, channel => {
-  if (channel.guild) db.recordEvent(channel.guild.id, "CHANNEL_CREATE", channel.guild.members.me?.id, channel.name);
-});
-client.on(Events.ChannelDelete, channel => {
-  if (channel.guild) db.recordEvent(channel.guild.id, "CHANNEL_DELETE", channel.guild.members.me?.id, channel.name);
-});
-client.on(Events.RoleCreate, role => {
-  db.recordEvent(role.guild.id, "ROLE_CREATE", role.guild.members.me?.id, role.name);
-});
-client.on(Events.RoleDelete, role => {
-  db.recordEvent(role.guild.id, "ROLE_DELETE", role.guild.members.me?.id, role.name);
-});
-
-client.login(process.env.DISCORD_TOKEN);
