@@ -11,7 +11,7 @@ const panel = new SlashCommandBuilder()
   .setDescription("Open the Overseer control panel")
   .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild.toString());
 
-const ticket = new SlashCommandBuilder()
+const diagnostics = new SlashCommandBuilder()\n  .setName("overseer-diagnostics")\n  .setDescription("View Overseer runtime diagnostics")\n  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild.toString());\n\nconst ticket = new SlashCommandBuilder()
   .setName("ticket")
   .setDescription("Open or manage an Overseer support ticket")
   .addSubcommand(s => s.setName("open").setDescription("Open a private support ticket"))
