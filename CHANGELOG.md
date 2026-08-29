@@ -1,5 +1,19 @@
 # Overseer changelog
 
+## 1.8.0
+
+- Added member join/leave logging when a log channel is configured.
+- Added deleted-message logging with available message content.
+- Added edited-message logging with before/after previews.
+- Expanded server event intelligence recording for moderation activity.
+- Added database helpers for recent warnings and warning leaderboards.
+- Updated runtime versioning and documentation.
+
+### Upgrade
+
+Run `update.bat`, `npm run check`, then `npm start`. No slash-command redeploy is required.
+
+
 ## 1.7.0
 
 - Made local question routing more flexible, including natural variations of role and permission questions.
