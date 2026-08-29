@@ -583,9 +583,13 @@ async function handleUpdate(i) {
             {
   name: "Last Result",
   value: state.lastResult
-    ? (state.lastResult.ok
-        ? `✅ ${state.lastResult.action || "Update"} completed${state.lastResult.skipped ? " (already up to date)" : ""}`
-        : `❌ ${state.lastResult.error || "Update failed"}`)
+    ? `Action: ${state.lastResult.action || "Unknown"}\nStatus: ${
+        state.lastResult.ok
+          ? state.lastResult.skipped
+            ? "Already up to date"
+            : "Successful"
+          : "Failed"
+      }`
     : "No update checks yet",
   inline: false
 }
