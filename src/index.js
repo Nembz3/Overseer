@@ -23,7 +23,7 @@ const client = new Client({
   ]
 });
 
-client.once(Events.ClientReady, c => console.log(`🟢 Overseer V1.6.0 online as ${c.user.tag}`));
+client.once(Events.ClientReady, c => console.log(`🟢 Overseer V1.7.0 online as ${c.user.tag}`));
 
 async function sendLog(guild, embed) {
   const s = db.settings(guild.id);
@@ -75,9 +75,10 @@ client.on(Events.MessageCreate, async message => {
   if (!text) return message.reply("👋 I'm here. Ask me something or give me a request.");
   try {
     const local = runtime.routeLocal(message.guild, message.member, text);
-    if (local) return await message.reply(local);
+    if (local) { runtime.markLocalRequest(); return await message.reply(local); }
     if (!runtime.aiAvailable()) return await message.reply(runtime.friendlyAiError(new Error("quota cooldown")));
     await message.channel.sendTyping();
+    runtime.markAiRequest();
     const answer = await ask({ guild: message.guild, actorId: message.author.id, text });
     runtime.clearAiError();
     await message.reply(answer.slice(0, 2000));
@@ -120,8 +121,9 @@ async function handleOverseer(i) {
   const text = i.options.getString("question", true);
   try {
     const local = runtime.routeLocal(i.guild, i.member, text);
-    if (local) return await i.editReply(local);
+    if (local) { runtime.markLocalRequest(); return await i.editReply(local); }
     if (!runtime.aiAvailable()) return await i.editReply(runtime.friendlyAiError(new Error("quota cooldown")));
+    runtime.markAiRequest();
     const answer = await ask({ guild: i.guild, actorId: i.user.id, text });
     runtime.clearAiError();
     await i.editReply(answer.slice(0, 2000));
@@ -177,6 +179,25 @@ async function handleSetup(i) {
     || await i.guild.channels.create({ name: "open-a-ticket", type: ChannelType.GuildText, reason: "Overseer ticket panel" });
   await ticketPanel.send(tickets.ticketPanelPayload()).catch(() => {});
   await i.editReply(`✅ **Overseer setup complete.**\n\n🎫 Ticket category: ${category}\n🎟️ Ticket opener: ${ticketPanel}\n📋 Overseer logs: ${logChannel}\n🛡️ Mod logs: ${modChannel}\n\nMembers can now click **Open Ticket** in ${ticketPanel}.`);
+}
+
+async function handleDiagnostics(i) {
+  if (!staff(i.member)) return i.reply({ content: "❌ You need Manage Server.", flags: MessageFlags.Ephemeral });
+  const h = runtime.health();
+  const fmt = n => n < 60 ? `${n}s` : `${Math.floor(n / 60)}m ${n % 60}s`;
+  const lines = [
+    "👁️ **Overseer Diagnostics**",
+    `🟢 Bot: ${client.isReady() ? "Ready" : "Not ready"}`,
+    `⏱️ Uptime: **${fmt(h.uptimeSeconds)}**`,
+    `🤖 Gemini: **${h.aiAvailable ? "Available" : "Cooling down"}**`,
+    `📨 AI requests this session: **${h.aiRequests}**`,
+    `⚡ Local requests this session: **${h.localRequests}**`,
+    `🔐 Manage Guild permission: **${i.guild.members.me.permissions.has(PermissionFlagsBits.ManageGuild) ? "Yes" : "No"}**`,
+    `🛡️ Moderate Members permission: **${i.guild.members.me.permissions.has(PermissionFlagsBits.ModerateMembers) ? "Yes" : "No"}**`,
+    `📁 Ticket category configured: **${db.settings(i.guild.id).ticket_category_id ? "Yes" : "No"}**`
+  ];
+  if (h.lastAiError) lines.push(`⚠️ Last AI error: ${h.lastAiError.message.slice(0, 120)}`);
+  return i.reply({ content: lines.join("\n"), flags: MessageFlags.Ephemeral });
 }
 
 async function handlePanel(i) {
@@ -370,7 +391,7 @@ client.on("error", error => console.error("Discord client error:", error));
 process.on("unhandledRejection", error => console.error("Unhandled promise rejection:", error));
 process.on("uncaughtException", error => console.error("Uncaught exception:", error));
 
-console.log("👁️ Connecting Overseer V1.6.0 to Discord...");
+console.log("👁️ Connecting Overseer V1.7.0 to Discord...");
 client.login(process.env.DISCORD_TOKEN).then(() => console.log("🔐 Discord login accepted; waiting for Ready event...")).catch(error => {
   console.error("Failed to log Overseer into Discord:", error);
   process.exitCode = 1;
