@@ -8,6 +8,7 @@ const db = require("./database");
 const automod = require("./automod");
 const intelligence = require("./server-intelligence");
 const tickets = require("./tickets");
+const runtime = require("./runtime");
 
 if (!process.env.DISCORD_TOKEN || !process.env.DISCORD_CLIENT_ID || !process.env.GEMINI_API_KEY) {
   throw new Error("Missing DISCORD_TOKEN, DISCORD_CLIENT_ID or GEMINI_API_KEY in .env");
@@ -22,7 +23,7 @@ const client = new Client({
   ]
 });
 
-client.once(Events.ClientReady, c => console.log(`🟢 Overseer V1.5.0 online as ${c.user.tag}`));
+client.once(Events.ClientReady, c => console.log(`🟢 Overseer V1.6.0 online as ${c.user.tag}`));
 
 async function sendLog(guild, embed) {
   const s = db.settings(guild.id);
@@ -73,12 +74,17 @@ client.on(Events.MessageCreate, async message => {
   const text = withoutMention.replace(nameTrigger, "").trim();
   if (!text) return message.reply("👋 I'm here. Ask me something or give me a request.");
   try {
+    const local = runtime.routeLocal(message.guild, message.member, text);
+    if (local) return await message.reply(local);
+    if (!runtime.aiAvailable()) return await message.reply(runtime.friendlyAiError(new Error("quota cooldown")));
     await message.channel.sendTyping();
     const answer = await ask({ guild: message.guild, actorId: message.author.id, text });
+    runtime.clearAiError();
     await message.reply(answer.slice(0, 2000));
   } catch (e) {
+    runtime.markAiError(e);
     console.error("Overseer AI error:", e);
-    await message.reply("❌ I couldn't contact the AI right now. Check the bot console.").catch(() => {});
+    await message.reply(runtime.friendlyAiError(e)).catch(() => {});
   }
 });
 
@@ -113,11 +119,16 @@ async function handleOverseer(i) {
   await i.deferReply();
   const text = i.options.getString("question", true);
   try {
+    const local = runtime.routeLocal(i.guild, i.member, text);
+    if (local) return await i.editReply(local);
+    if (!runtime.aiAvailable()) return await i.editReply(runtime.friendlyAiError(new Error("quota cooldown")));
     const answer = await ask({ guild: i.guild, actorId: i.user.id, text });
+    runtime.clearAiError();
     await i.editReply(answer.slice(0, 2000));
   } catch (e) {
+    runtime.markAiError(e);
     console.error("Overseer AI error:", e);
-    await i.editReply("❌ I couldn't contact the AI right now. Check the bot console.");
+    await i.editReply(runtime.friendlyAiError(e));
   }
 }
 
@@ -251,7 +262,9 @@ async function handleButton(i) {
 
 async function handleStatus(i) {
   if (!staff(i.member)) return i.reply({ content: "❌ You need Manage Server.", flags: MessageFlags.Ephemeral });
-  return i.reply({ content: intelligence.summary(i.guild), flags: MessageFlags.Ephemeral });
+  const h = runtime.health();
+  const ai = h.aiAvailable ? "🟢 Available" : `🟡 Cooling down (${h.quotaCooldownSeconds}s)`;
+  return i.reply({ content: `${intelligence.summary(i.guild)}\n\n🤖 AI health: **${ai}**`, flags: MessageFlags.Ephemeral });
 }
 
 async function handleReport(i) {
@@ -357,7 +370,7 @@ client.on("error", error => console.error("Discord client error:", error));
 process.on("unhandledRejection", error => console.error("Unhandled promise rejection:", error));
 process.on("uncaughtException", error => console.error("Uncaught exception:", error));
 
-console.log("👁️ Connecting Overseer to Discord...");
+console.log("👁️ Connecting Overseer V1.6.0 to Discord...");
 client.login(process.env.DISCORD_TOKEN).then(() => console.log("🔐 Discord login accepted; waiting for Ready event...")).catch(error => {
   console.error("Failed to log Overseer into Discord:", error);
   process.exitCode = 1;
