@@ -307,33 +307,31 @@ function startAutoUpdater(
     }
   };
 
-  const schedule = () => {
+  const schedule = (delayMs = null) => {
     if (timer) {
-      clearInterval(timer);
+      clearTimeout(timer);
     }
 
-    const minutes =
-      readState().intervalMinutes;
+    const minutes = readState().intervalMinutes;
+    const delay =
+      delayMs ??
+      minutes * 60 * 1000;
 
-    timer = setInterval(
-      tick,
-      minutes * 60 * 1000
-    );
+    timer = setTimeout(async () => {
+      await tick();
+      schedule();
+    }, delay);
   };
 
-  schedule();
-
-  setTimeout(
-    tick,
-    60 * 1000
-  );
+  schedule(60 * 1000);
 
   return {
-    refresh: schedule,
+    refresh: () => schedule(),
 
     stop: () => {
       if (timer) {
-        clearInterval(timer);
+        clearTimeout(timer);
+        timer = null;
       }
     }
   };
