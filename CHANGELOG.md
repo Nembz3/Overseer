@@ -1,5 +1,35 @@
 # 👁️ Overseer — Complete Changelog
 
+# Version 3.0.0 — Final Release Candidate & Reliability Hardening
+
+V3 is Overseer's planned final release. This stage focuses on consolidating the existing feature set, hardening reliability, and improving maintainability rather than expanding the bot with unnecessary new systems.
+
+## 🧱 Architecture
+- Moved Discord event handling into `src/events.js` to reduce the size and responsibility of the main runtime file.
+- Preserved existing natural-language activation, ticket AI, AutoMod, proactive monitoring, and activity logging during the event-handler refactor.
+- Expanded `npm run check` to validate the new event-handler module.
+
+## 🛡️ Reliability hardening
+- Removed duplicated intelligence and case handlers discovered during the V2.0 integration cleanup.
+- Removed duplicated member, message, and scheduled-report event processing.
+- Added protection against update checks running from a detached Git HEAD.
+- Improved scheduled intelligence reporting so an unavailable or non-text destination channel records a `REPORT_DELIVERY_FAILED` audit event.
+- Added optional Overseer log alerts for scheduled report delivery failures.
+
+## 🤖 AI safety
+- Preserved planning-mode behaviour that disables Gemini action tools while planning.
+- Kept destructive moderation actions behind the existing permission, role-hierarchy, cooldown, and confirmation controls.
+
+## 📋 Release policy
+- V3 is intended to be the final planned feature release.
+- Further work should be limited to bug fixes, security fixes, dependency compatibility, and critical reliability maintenance unless the project direction is intentionally changed.
+
+## 📝 Documentation
+- Updated the changelog to track V3 audit and reliability work as it was completed.
+- Updated project documentation and version references for the V3 final-release track.
+
+---
+
 This changelog records the development history of Overseer from the original project through the current release. Earlier versions have been reconstructed from the documented development and testing history so the release history is not reduced to one-line summaries.
 
 ---
