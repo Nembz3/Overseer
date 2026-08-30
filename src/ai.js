@@ -72,7 +72,7 @@ async function ask({ guild, actorId, text }) {
     response = await ai.models.generateContent({
     model: MODEL,
     contents: [{ role: "user", parts: [{ text: `${prompt(guild, planningMode)}\nUSER (${actorId}): ${effectiveText.trim()}` }] }],
-    config: { tools: geminiTools() }
+    config: planningMode ? {} : { tools: geminiTools() }
     });
   } catch (e) { runtime.markAiError(e); throw e; }
 
