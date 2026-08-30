@@ -27,6 +27,14 @@ V3 is Overseer's planned final release. This stage focuses on consolidating the 
 ## 📝 Documentation
 - Updated the changelog to track V3 audit and reliability work as it was completed.
 - Updated project documentation and version references for the V3 final-release track.
+- Removed duplicated V3 release-policy documentation.
+- Removed a stale V2 heading from the current capabilities documentation.
+
+## 🔄 Update-system activation
+- Activated the automatic update scheduler during Overseer startup.
+- Removed a stale hard-coded V2.0.0 startup version string and now display the version from `VERSION`.
+- Updated automatic update scheduling so interval changes can take effect without requiring a bot restart.
+- Aligned `package.json` package metadata with the V3.0.0 release.
 
 ---
 
