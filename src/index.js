@@ -100,14 +100,11 @@ client.on(Events.GuildMemberAdd, async member => {
   db.log(member.guild.id, null, member.id, "MEMBER_JOIN", member.user.tag);
   db.recordEvent(member.guild.id, "MEMBER_JOIN", member.id, member.user.tag);
   proactive.onMemberJoin(member, sendLog).catch(e => console.error("Proactive join monitor error:", e));
-  db.recordEvent(member.guild.id, "MEMBER_JOIN", member.id, member.user.tag);
-  proactive.onMemberJoin(member, sendLog).catch(e => console.error("Proactive join monitor error:", e));
   await sendLog(member.guild, new EmbedBuilder().setDescription(`📥 **Member joined:** ${member.user.tag}`).setTimestamp());
 });
 
 client.on(Events.GuildMemberRemove, async member => {
   db.log(member.guild.id, null, member.id, "MEMBER_LEAVE", member.user?.tag || "Unknown");
-  db.recordEvent(member.guild.id, "MEMBER_LEAVE", member.id, member.user?.tag || "Unknown");
   db.recordEvent(member.guild.id, "MEMBER_LEAVE", member.id, member.user?.tag || "Unknown");
   await sendLog(member.guild, new EmbedBuilder().setDescription(`📤 **Member left:** ${member.user?.tag || member.id}`).setTimestamp());
 });
@@ -116,7 +113,6 @@ client.on(Events.MessageDelete, async message => {
   if (message.partial) await message.fetch().catch(() => {});
   if (!message.guild || message.author?.bot) return;
   db.log(message.guild.id, null, message.author?.id || null, "MESSAGE_DELETE", String(message.channel?.id || ""));
-  db.recordEvent(message.guild.id, "MESSAGE_DELETE", message.author?.id || null, String(message.channel?.id || ""));
   db.recordEvent(message.guild.id, "MESSAGE_DELETE", message.author?.id || null, String(message.channel?.id || ""));
   const description = `🗑️ **Message deleted**\nChannel: <#${message.channel.id}>\nAuthor: **${message.author?.tag || "Unknown (message was not cached)"}**${message.content ? `\n\n> ${message.content.slice(0, 800)}` : ""}`;
   await sendLog(message.guild, new EmbedBuilder().setDescription(description).setTimestamp());
@@ -129,7 +125,6 @@ client.on(Events.MessageUpdate, async (oldMessage, newMessage) => {
   if (newMessage.partial) await newMessage.fetch().catch(() => {});
   if (oldMessage.content === newMessage.content) return;
   db.log(newMessage.guild.id, null, newMessage.author?.id || null, "MESSAGE_EDIT", String(newMessage.channel?.id || ""));
-  db.recordEvent(newMessage.guild.id, "MESSAGE_EDIT", newMessage.author?.id || null, String(newMessage.channel?.id || ""));
   db.recordEvent(newMessage.guild.id, "MESSAGE_EDIT", newMessage.author?.id || null, String(newMessage.channel?.id || ""));
   const description = `✏️ **Message edited**\nChannel: <#${newMessage.channel.id}>\nAuthor: **${newMessage.author?.tag || "Unknown"}**\n\n**Before:** ${String(oldMessage.content || "[unavailable]").slice(0, 500)}\n**After:** ${String(newMessage.content || "[empty]").slice(0, 500)}`;
   await sendLog(newMessage.guild, new EmbedBuilder().setDescription(description).setTimestamp());
@@ -405,23 +400,6 @@ async function handleCases(i) {
   }
 }
 
-async function handleIntelligence(i) {
-  if (!staff(i.member)) return i.reply({content:"❌ You need Manage Server.",flags:MessageFlags.Ephemeral});
-  const sub=i.options.getSubcommand(),s=db.settings(i.guild.id);
-  if(sub==="status"){const rs=db.reportSettings(i.guild.id),a=db.recentProactiveAlerts(i.guild.id,5),lines=a.length?a.map(x=>`• ${x.type} — severity ${x.severity}/5`).join("\n"):"No proactive alerts yet.";return i.reply({content:`🧠 **Overseer Proactive Intelligence**\n\nStatus: **${s.proactive_enabled?"🟢 Enabled":"🔴 Disabled"}**\nJoin flood threshold: **${s.join_flood_threshold||5}/min**\nActivity spike threshold: **${s.activity_spike_threshold||80} messages/min**\nScheduled reports: **${rs.enabled?"Enabled":"Disabled"}**\n\n**Recent alerts**\n${lines}`,flags:MessageFlags.Ephemeral});}
-  if(sub==="enable"){db.update(i.guild.id,{proactive_enabled:1});return i.reply({content:"🟢 Proactive intelligence enabled.",flags:MessageFlags.Ephemeral});}
-  if(sub==="disable"){db.update(i.guild.id,{proactive_enabled:0});return i.reply({content:"🔴 Proactive intelligence disabled.",flags:MessageFlags.Ephemeral});}
-  if(sub==="alerts"){const a=db.recentProactiveAlerts(i.guild.id,15),text=a.length?a.map(x=>`#${x.id} • **${x.type}** • severity ${x.severity}/5 • ${x.details}`).join("\n"):"No proactive alerts.";return i.reply({content:`🚨 **Proactive Alerts**\n\n${text}`.slice(0,3900),flags:MessageFlags.Ephemeral});}
-  if(sub==="report"){const days=i.options.getInteger("days",true),r=proactive.buildReport(i.guild,days);return i.reply({content:`📊 **Proactive Intelligence Report — ${days} day${days===1?"":"s"}**\n\nWarnings: **${r.warnings}**\nAutoMod incidents: **${r.incidents}**\nProactive alerts: **${r.alerts}**\n\n**Events**\n${r.eventText}\n\n**Most active members**\n${r.activeText}`.slice(0,3900),flags:MessageFlags.Ephemeral});}
-  if(sub==="schedule"){const channel=i.options.getChannel("channel",true),frequency=i.options.getString("frequency",true),hour=i.options.getInteger("hour",true);db.updateReportSettings(i.guild.id,{channel_id:channel.id,enabled:1,frequency,hour_utc:hour});db.log(i.guild.id,i.user.id,null,"REPORT_SCHEDULE",`${frequency} at ${hour}:00 UTC in #${channel.name}`);return i.reply({content:`⏰ ${frequency[0].toUpperCase()+frequency.slice(1)} intelligence reports scheduled for ${channel} at **${hour}:00 UTC**.`,flags:MessageFlags.Ephemeral});}
-}
-async function handleCases(i) {
-  if (!staff(i.member)) return i.reply({content:"❌ You need Manage Server.",flags:MessageFlags.Ephemeral});
-  const sub=i.options.getSubcommand();
-  if(sub==="recent"){const rows=db.logs(i.guild.id,Number(i.options.getInteger("limit")||15)),text=rows.length?rows.map(x=>`#${x.id} • **${x.action}** • ${x.target_id?`<@${x.target_id}>`:"—"} • ${x.reason||"No details"}`).join("\n"):"No cases recorded.";return i.reply({content:`📁 **Recent Overseer Cases**\n\n${text}`.slice(0,3900),flags:MessageFlags.Ephemeral});}
-  if(sub==="member"){const u=i.options.getUser("member",true),rows=db.db.prepare("SELECT * FROM logs WHERE guild_id=? AND target_id=? ORDER BY id DESC LIMIT 20").all(i.guild.id,u.id),text=rows.length?rows.map(x=>`#${x.id} • **${x.action}** • ${x.reason||"No details"}`).join("\n"):"No recorded cases for this member.";return i.reply({content:`📁 **Case history for ${u.tag}**\n\n${text}`.slice(0,3900),flags:MessageFlags.Ephemeral});}
-  const rows=db.db.prepare("SELECT action,COUNT(*) AS n FROM logs WHERE guild_id=? GROUP BY action ORDER BY n DESC LIMIT 15").all(i.guild.id),text=rows.length?rows.map(x=>`• ${x.action}: **${x.n}**`).join("\n"):"No cases recorded.";return i.reply({content:`📊 **Overseer Case Statistics**\n\n${text}`,flags:MessageFlags.Ephemeral});
-}
 async function handleWarnings(i) {
   if (!staff(i.member)) return i.reply({ content: "❌ You need Manage Server.", flags: MessageFlags.Ephemeral });
   const sub = i.options.getSubcommand();
@@ -754,8 +732,6 @@ async function handleUpdate(i) {
 }
 client.on("error", error => console.error("Discord client error:", error));
 process.on("unhandledRejection", error => console.error("Unhandled promise rejection:", error));
-setInterval(()=>{if(client.isReady()) proactive.runScheduledReports(client).catch(e=>console.error("Scheduled report error:",e));},60000);
-
 setInterval(() => {
   if (!client.isReady()) return;
   proactive.runScheduledReports(client, sendLog).catch(e => console.error("Scheduled report error:", e));
