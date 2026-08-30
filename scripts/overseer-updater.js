@@ -57,6 +57,25 @@ function run(command, args = []) {
   ).trim();
 }
 
+function currentBranch() {
+  const branch = run(
+    "git",
+    [
+      "rev-parse",
+      "--abbrev-ref",
+      "HEAD"
+    ]
+  );
+
+  if (!branch || branch === "HEAD") {
+    throw new Error(
+      "Cannot update from a detached Git HEAD."
+    );
+  }
+
+  return branch;
+}
+
 function readVersion() {
   try {
     return (
@@ -297,12 +316,14 @@ function installUpdate() {
       "Fetching latest version..."
     );
 
+    const branch = currentBranch();
+
     run(
       "git",
       [
         "fetch",
         "origin",
-        "main",
+        branch,
         "--quiet"
       ]
     );
@@ -312,7 +333,7 @@ function installUpdate() {
         "git",
         [
           "rev-parse",
-          "origin/main"
+          `origin/${branch}`
         ]
       );
 
