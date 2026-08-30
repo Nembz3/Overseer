@@ -12,12 +12,16 @@ echo [1/4] Checking GitHub...
 git fetch origin
 if errorlevel 1 goto :error
 
-echo [2/4] Updating Overseer...
-git pull --ff-only origin main
+for /f "delims=" %%b in ('git rev-parse --abbrev-ref HEAD 2^>nul') do set BRANCH=%%b
+if "%BRANCH%"=="" goto :error
+if "%BRANCH%"=="HEAD" goto :error
+
+echo [2/4] Updating Overseer from %BRANCH%...
+git pull --ff-only origin %BRANCH%
 if errorlevel 1 goto :error
 
 echo [3/4] Checking dependencies...
-call npm install
+call npm ci
 if errorlevel 1 goto :error
 
 echo [4/4] UPDATE COMPLETE!
