@@ -160,7 +160,7 @@ npm run check
 npm start
 ```
 
-The updater follows the repository's currently checked-out release branch and installs the matching dependencies. The standard release branch is `v3-foundation`.
+The updater follows the repository's currently checked-out branch and installs the matching dependencies. Overseer's final release is maintained on the `main` branch.
 
 Your local `.env` and SQLite database are intentionally not tracked by Git, so they remain on your machine during normal updates.
 
