@@ -4,6 +4,56 @@ This changelog records the development history of Overseer from the original pro
 
 ---
 
+# Version 2.1.1 — Update System Reliability & Feedback
+
+V2.1.1 completed the update-system release by improving its runtime feedback, status reporting, and recovery visibility.
+
+## 🔄 Update command improvements
+- Updated the startup log to read and display the current version dynamically.
+- Improved `/overseer-update status` so the most recent update action, outcome, and before/after commits are displayed reliably.
+- Improved `/overseer-update check` with clearer current-version, local-commit, remote-commit, and automatic-update status information.
+- Improved `/overseer-update history` so completed, skipped, and failed update actions are easier to interpret.
+- Improved the queued-update and queued-rollback responses to explain that the bot may briefly restart while the action completes.
+
+## 🛠️ Fixes
+- Fixed Discord embed field validation for update-status results.
+- Fixed formatting of update-status result fields when commit details are absent or stored under rollback data.
+- Improved rollback reporting to show the restored commit rather than implying the rollback did not change anything.
+
+## ✅ Verification
+- Confirmed update status, update history, update checks, and automatic-update status in Discord.
+- Confirmed manual rollback restores the previous Git commit and records a successful result.
+- Confirmed the local and GitHub commits can be compared to verify the deployment is up to date.
+
+---
+
+# Version 2.1.0 — Automated Update & Recovery System
+
+V2.1 introduced Overseer's self-managed update pipeline, allowing authorised administrators to safely check for, install, and recover from GitHub-based updates.
+
+## 📦 Update management
+- Added GitHub commit checking to detect available updates.
+- Added administrator-only `/overseer-update` commands for update status, checks, installation, rollback, history, and automatic-update configuration.
+- Added manual update installation through the background updater.
+- Added configurable automatic update checks and enable/disable controls.
+- Added persistent update state, including check times, results, and update history.
+
+## 🛡️ Safe installation and recovery
+- Added a backup before each update.
+- Added manual rollback to restore the latest available backup.
+- Added automatic rollback when an update fails validation or installation.
+- Added source validation after updates.
+- Added automatic dependency installation with `npm ci`.
+- Added Discord slash-command deployment after installation.
+- Added PM2 restart support so the updated bot returns to service automatically.
+
+## 📜 Operational visibility
+- Added persistent update history with action, result, commit, and timestamp details.
+- Added update-status reporting for current version, automatic-update settings, check interval, and latest result.
+- Added GitHub/local commit comparison to confirm whether a deployment is current.
+
+---
+
 # Version 2.0.0 — Proactive Intelligence Major Update
 
 ## 🧠 Proactive intelligence
