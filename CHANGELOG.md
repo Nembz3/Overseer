@@ -1,8 +1,8 @@
 # 👁️ Overseer — Complete Changelog
 
-# Version 3.0.0 — Final Release Candidate & Reliability Hardening
+# Version 3.0.0 — Final Release & Reliability Hardening
 
-V3 is Overseer's planned final release. This stage focuses on consolidating the existing feature set, hardening reliability, and improving maintainability rather than expanding the bot with unnecessary new systems.
+V3 is Overseer's final planned release. This release focuses on consolidating the existing feature set, hardening reliability, and improving maintainability rather than expanding the bot with unnecessary new systems.
 
 ## 🧱 Architecture
 - Moved Discord event handling into `src/events.js` to reduce the size and responsibility of the main runtime file.
