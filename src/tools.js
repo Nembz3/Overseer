@@ -32,9 +32,18 @@ module.exports.tools = [
     name: { type: "string" }, color: { type: "string" }
   }, ["name"]),
 
-  functionTool("create_channel", "Create a text or voice channel.", {
+  functionTool("create_channel", "Create a text or voice channel. Use this for a single channel.", {
     name: { type: "string" }, type: { type: "string", enum: ["text", "voice"] }
   }, ["name", "type"]),
+
+  functionTool("create_category", "Create a Discord category for organising channels.", {
+    name: { type: "string" }
+  }, ["name"]),
+
+  functionTool("create_channel_group", "Create a category and multiple text or voice channels inside it as one planned action. Use for requests that clearly ask for a group of related channels.", {
+    category_name: { type: "string" },
+    channels: { type: "array", minItems: 1, maxItems: 15, items: { type: "object", properties: { name: { type: "string" }, type: { type: "string", enum: ["text", "voice"] } }, required: ["name", "type"], additionalProperties: false } }
+  }, ["category_name", "channels"]),
 
   functionTool("remember", "Remember a non-sensitive server fact.", {
     key: { type: "string" }, value: { type: "string" }
