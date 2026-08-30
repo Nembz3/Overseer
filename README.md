@@ -1,4 +1,4 @@
-# 👁️ Overseer V2.0
+# 👁️ Overseer V3.0
 
 A Discord AI administrator and moderator built around **Gemini**, **Discord.js**, and a persistent local **SQLite** database.
 
@@ -45,14 +45,6 @@ Overseer is designed to act as a server's AI operations layer: it can answer mem
 - Configurable UTC report delivery time and destination channel
 - `/overseer-intelligence` command suite for proactive monitoring
 - `/overseer-cases` command suite for audit and moderation case history
-
-### 🚨 V2.0 Proactive Intelligence
-- Join-flood and activity-spike alerts
-- Persistent proactive alert history
-- Per-member activity tracking
-- Daily/weekly scheduled intelligence reports
-- `/overseer-intelligence` proactive monitoring controls
-- `/overseer-cases` audit and case history
 
 ### 🧠 Memory & server intelligence
 - Persistent SQLite memory
@@ -168,7 +160,7 @@ npm run check
 npm start
 ```
 
-The updater pulls the latest `main` branch and runs `npm install`.
+The updater follows the repository's currently checked-out release branch and installs the matching dependencies. The standard release branch is `v3-foundation`.
 
 Your local `.env` and SQLite database are intentionally not tracked by Git, so they remain on your machine during normal updates.
 
@@ -189,9 +181,13 @@ Then test natural-language messages beginning with `Overseer`, simple local ques
 
 ## 📦 Versioning
 
-Current version: **2.0.0**
+Current release track: **V3.0 — Final planned release**
 
 See `CHANGELOG.md` for the release history.
+
+## 🧭 V3 release policy
+
+V3 is Overseer's final planned feature release. Future changes should focus on bug fixes, security fixes, dependency compatibility, and critical reliability maintenance unless the project direction is deliberately changed.
 
 ## ⚠️ Safety & permissions
 
