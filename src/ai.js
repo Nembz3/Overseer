@@ -7,6 +7,7 @@ const intelligence = require("./server-intelligence");
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 const runtime = require("./runtime");
+const pendingPlans = new Map();
 
 function geminiTools() {
   return [{ functionDeclarations: tools.map(t => ({
@@ -49,14 +50,27 @@ async function ask({ guild, actorId, text }) {
   if (!text?.trim()) return "What would you like me to do?";
   if (!runtime.aiAvailable()) return "⏳ Overseer AI is temporarily cooling down because the Gemini quota/rate limit was reached. Please try again later.";
   const s = db.settings(guild.id);
-  const planningMode = /\b(set up|setup|build|organis[ez]|completely|full|entire|multiple|several)\b/i.test(text) && !/\b(confirm plan|execute plan|yes,? (do|execute) it)\b/i.test(text);
+  const planKey = `${guild.id}:${actorId}`;
+  const confirmation = /^\s*(confirm plan|execute plan|yes,?\s+(do|execute)\s+it)\s*[.!]?\s*$/i.test(text);
+  const complexRequest = /\b(set up|setup|build|organis[ez]|completely|full|entire|multiple|several)\b/i.test(text);
+  let effectiveText = text;
+  let planningMode = complexRequest && !confirmation;
+  if (confirmation) {
+    const pending = pendingPlans.get(planKey);
+    if (!pending || Date.now() - pending.createdAt > 15 * 60 * 1000) return "I don't have an active plan to confirm. Please ask me to create the plan again.";
+    effectiveText = pending.text;
+    planningMode = false;
+    pendingPlans.delete(planKey);
+  } else if (planningMode) {
+    pendingPlans.set(planKey, { text: text.trim(), createdAt: Date.now() });
+  }
   if (!s.ai_enabled) return "🔴 Overseer AI is currently disabled in this server.";
 
   let response;
   try {
     response = await ai.models.generateContent({
     model: MODEL,
-    contents: [{ role: "user", parts: [{ text: `${prompt(guild, planningMode)}\nUSER (${actorId}): ${text.trim()}` }] }],
+    contents: [{ role: "user", parts: [{ text: `${prompt(guild, planningMode)}\nUSER (${actorId}): ${effectiveText.trim()}` }] }],
     config: { tools: geminiTools() }
     });
   } catch (e) { runtime.markAiError(e); throw e; }
