@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "deploy": "node src/deploy-commands.js",
-    "check": "node --check src/index.js && node --check src/ai.js && node --check src/automod.js && node --check src/database.js && node --check src/deploy-commands.js && node --check src/server-intelligence.js && node --check src/tools.js && node --check src/tickets.js && node --check src/runtime.js && node --check src/proactive.js && node --check src/update-manager.js && node --check scripts/overseer-updater.js"
+    "check": "node --check src/index.js && node --check src/events.js && node --check src/ai.js && node --check src/automod.js && node --check src/database.js && node --check src/deploy-commands.js && node --check src/server-intelligence.js && node --check src/tools.js && node --check src/tickets.js && node --check src/runtime.js && node --check src/proactive.js && node --check src/update-manager.js && node --check scripts/overseer-updater.js"
   },
   "engines": {
     "node": ">=20"
