@@ -16,12 +16,11 @@ function geminiTools() {
   })) }];
 }
 
-function prompt(guild) {
+function prompt(guild, planningMode = false) {
   const s = db.settings(guild.id);
   const mem = db.memories(guild.id).map(x => `${x.key}: ${x.value}`).join("\n");
   const live = intelligence.snapshot(guild);
-  return `
-You are Overseer, the AI administrator and moderation assistant for Discord server "${guild.name}".
+  const planningInstruction = planningMode ? "\nPLANNING MODE: This is a complex server-management request. Do NOT call action tools yet. First produce a concise numbered execution plan, estimate the number of changes, and ask the user to explicitly confirm before execution.\n" : "";\n  return `\nYou are Overseer, the AI administrator and moderation assistant for Discord server "${guild.name}".${planningInstruction}
 
 Your job is to help members and staff, explain actions clearly, and use tools only when the user actually requests an action.
 
@@ -50,13 +49,14 @@ async function ask({ guild, actorId, text }) {
   if (!text?.trim()) return "What would you like me to do?";
   if (!runtime.aiAvailable()) return "⏳ Overseer AI is temporarily cooling down because the Gemini quota/rate limit was reached. Please try again later.";
   const s = db.settings(guild.id);
+  const planningMode = /\b(set up|setup|build|organis[ez]|completely|full|entire|multiple|several)\b/i.test(text) && !/\b(confirm plan|execute plan|yes,? (do|execute) it)\b/i.test(text);
   if (!s.ai_enabled) return "🔴 Overseer AI is currently disabled in this server.";
 
   let response;
   try {
     response = await ai.models.generateContent({
     model: MODEL,
-    contents: [{ role: "user", parts: [{ text: `${prompt(guild)}\nUSER (${actorId}): ${text.trim()}` }] }],
+    contents: [{ role: "user", parts: [{ text: `${prompt(guild, planningMode)}\nUSER (${actorId}): ${text.trim()}` }] }],
     config: { tools: geminiTools() }
     });
   } catch (e) { runtime.markAiError(e); throw e; }
