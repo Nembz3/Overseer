@@ -36,7 +36,7 @@ Overseer is designed to act as a server's AI operations layer: it can answer mem
 - Close button and `/ticket close`
 - `/ticket panel` for manually posting an additional ticket opener
 
-### 🚨 V2.0 Proactive Intelligence
+### 🚨 Proactive intelligence
 - Proactive join-flood detection and raid-style activity alerts
 - Activity-spike detection based on live message volume
 - Persistent proactive alert history
@@ -189,9 +189,7 @@ See `CHANGELOG.md` for the release history.
 
 V3 is Overseer's final planned feature release. Future changes should focus on bug fixes, security fixes, dependency compatibility, and critical reliability maintenance unless the project direction is deliberately changed.
 
-## 🧭 V3 release policy
 
-V3 is Overseer's final planned feature release. Future changes should focus on bug fixes, security fixes, dependency compatibility, and critical reliability maintenance unless the project direction is deliberately changed.
 
 ## ⚠️ Safety & permissions
 
