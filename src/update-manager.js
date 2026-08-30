@@ -121,11 +121,19 @@ function currentCommit() {
 }
 
 function currentBranch() {
-  return git([
+  const branch = git([
     "rev-parse",
     "--abbrev-ref",
     "HEAD"
   ]);
+
+  if (!branch || branch === "HEAD") {
+    throw new Error(
+      "Cannot check for updates from a detached Git HEAD."
+    );
+  }
+
+  return branch;
 }
 
 function remoteCommit() {
