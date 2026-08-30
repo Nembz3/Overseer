@@ -27,7 +27,12 @@ const client = new Client({
   partials: [Partials.Message, Partials.Channel, Partials.GuildMember, Partials.User]
 });
 
-client.once(Events.ClientReady, c => console.log(`🟢 Overseer V${OVERSEER_VERSION} online as ${c.user.tag}`));
+client.once(Events.ClientReady, c => {
+  console.log(`🟢 Overseer V${OVERSEER_VERSION} online as ${c.user.tag}`);
+  updates.startAutoUpdater(info => {
+    console.log(`📦 Overseer update available: ${info.localCommit.slice(0, 7)} -> ${info.remoteCommit.slice(0, 7)}`);
+  });
+});
 async function sendLog(guild, embed) {
   const s = db.settings(guild.id);
   if (!s.log_channel_id) { console.warn(`[Overseer Logs] No log channel configured for ${guild.name}`); return false; }
@@ -653,7 +658,7 @@ setInterval(() => {
 }, 60_000);
 process.on("uncaughtException", error => console.error("Uncaught exception:", error));
 
-console.log("👁️ Connecting Overseer V2.0.0 to Discord...");
+console.log(`👁️ Connecting Overseer V${OVERSEER_VERSION} to Discord...`);
 client.login(process.env.DISCORD_TOKEN).then(() => console.log("🔐 Discord login accepted; waiting for Ready event...")).catch(error => {
   console.error("Failed to log Overseer into Discord:", error);
   process.exitCode = 1;
