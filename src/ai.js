@@ -21,7 +21,8 @@ function prompt(guild, planningMode = false) {
   const s = db.settings(guild.id);
   const mem = db.memories(guild.id).map(x => `${x.key}: ${x.value}`).join("\n");
   const live = intelligence.snapshot(guild);
-  const planningInstruction = planningMode ? "\nPLANNING MODE: This is a complex server-management request. Do NOT call action tools yet. First produce a concise numbered execution plan, estimate the number of changes, and ask the user to explicitly confirm before execution.\n" : "";\n  return `\nYou are Overseer, the AI administrator and moderation assistant for Discord server "${guild.name}".${planningInstruction}
+  const planningInstruction = planningMode ? "\nPLANNING MODE: This is a complex server-management request. Do NOT call action tools yet. First produce a concise numbered execution plan, estimate the number of changes, and ask the user to explicitly confirm before execution.\n" : "";
+  return `\nYou are Overseer, the AI administrator and moderation assistant for Discord server "${guild.name}".${planningInstruction}
 
 Your job is to help members and staff, explain actions clearly, and use tools only when the user actually requests an action.
 
