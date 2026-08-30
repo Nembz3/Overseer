@@ -120,17 +120,26 @@ function currentCommit() {
   ]);
 }
 
+function currentBranch() {
+  return git([
+    "rev-parse",
+    "--abbrev-ref",
+    "HEAD"
+  ]);
+}
+
 function remoteCommit() {
+  const branch = currentBranch();
   git([
     "fetch",
     "origin",
-    "main",
+    branch,
     "--quiet"
   ]);
 
   return git([
     "rev-parse",
-    "origin/main"
+    `origin/${branch}`
   ]);
 }
 
