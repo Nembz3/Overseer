@@ -189,6 +189,10 @@ See `CHANGELOG.md` for the release history.
 
 V3 is Overseer's final planned feature release. Future changes should focus on bug fixes, security fixes, dependency compatibility, and critical reliability maintenance unless the project direction is deliberately changed.
 
+## 🧭 V3 release policy
+
+V3 is Overseer's final planned feature release. Future changes should focus on bug fixes, security fixes, dependency compatibility, and critical reliability maintenance unless the project direction is deliberately changed.
+
 ## ⚠️ Safety & permissions
 
 Overseer should only be given the Discord permissions it actually needs. Discord role hierarchy still applies: the bot cannot reliably moderate members or manage roles above its highest role, regardless of what the AI is asked to do.
