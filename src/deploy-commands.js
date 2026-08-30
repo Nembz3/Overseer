@@ -1,5 +1,19 @@
 require("dotenv").config();
 
+const fs = require("fs");
+const path = require("path");
+
+const OVERSEER_VERSION = (() => {
+  try {
+    return fs.readFileSync(
+      path.join(__dirname, "..", "VERSION"),
+      "utf8"
+    ).trim() || "unknown";
+  } catch {
+    return "unknown";
+  }
+})();
+
 const {
   REST,
   Routes,
@@ -566,8 +580,6 @@ const rest = new REST({
     }
   );
 
-  console.log(
-    "Overseer V2.1.0 commands deployed."
-  );
+  console.log(`Overseer V${OVERSEER_VERSION} commands deployed.`);
 
 })().catch(console.error);
