@@ -212,7 +212,7 @@ This gives a quick tour of Overseer's AI, moderation, reporting, ticketing, and 
 
 Current release track: **V3.0 — Final planned release**
 
-See `CHANGELOG.md` for the release history.
+See `CHANGELOG.md` for the release history and [`docs/V3.0.0-RELEASE-NOTES.md`](docs/V3.0.0-RELEASE-NOTES.md) for the V3.0.0 release summary.
 
 ## 🧭 V3 release policy
 
