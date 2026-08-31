@@ -1,5 +1,12 @@
 # 👁️ Overseer V3.0
 
+[![CI](https://github.com/Nembz3/Overseer/actions/workflows/check.yml/badge.svg)](https://github.com/Nembz3/Overseer/actions/workflows/check.yml)
+[![Version](https://img.shields.io/badge/version-3.0.0-blue)](https://github.com/Nembz3/Overseer/releases)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D20-green)](https://nodejs.org/)
+[![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Overseer-ff5e5b)](https://ko-fi.com/nembz)
+
+
 A Discord AI administrator and moderator built around **Gemini**, **Discord.js**, and a persistent local **SQLite** database.
 
 Overseer is designed to act as a server's AI operations layer: it can answer members, inspect server context, moderate users, manage server resources, operate tickets, run giveaways, remember important information, and provide staff with control and reporting tools.
