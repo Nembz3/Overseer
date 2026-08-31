@@ -194,6 +194,20 @@ After installation/update, test:
 
 Then test natural-language messages beginning with `Overseer`, simple local questions such as `Overseer, how many members are there?`, and click **Open Ticket** in `#open-a-ticket`.
 
+
+## 🎬 Quick demo
+
+A simple way to experience Overseer:
+
+1. Run `/overseer-setup`
+2. Open `/overseer-panel` to inspect the control centre
+3. Send `Overseer, what can you do?`
+4. Test `/automod status` and `/overseer-report days:1`
+5. Open a member ticket from `#open-a-ticket`
+6. Check `/overseer-diagnostics` as an administrator
+
+This gives a quick tour of Overseer's AI, moderation, reporting, ticketing, and operational features.
+
 ## 📦 Versioning
 
 Current release track: **V3.0 — Final planned release**
