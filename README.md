@@ -4,6 +4,14 @@ A Discord AI administrator and moderator built around **Gemini**, **Discord.js**
 
 Overseer is designed to act as a server's AI operations layer: it can answer members, inspect server context, moderate users, manage server resources, operate tickets, run giveaways, remember important information, and provide staff with control and reporting tools.
 
+## ❤️ Support Overseer
+
+If you enjoy Overseer and want to support its development, you can make an optional donation on Ko-fi:
+
+**☕ [Support Overseer on Ko-fi](https://ko-fi.com/nembz)**
+
+Your support is appreciated and helps encourage future maintenance and development.
+
 ## ✨ Current capabilities
 
 ### 🤖 AI administrator
@@ -188,8 +196,6 @@ See `CHANGELOG.md` for the release history.
 ## 🧭 V3 release policy
 
 V3 is Overseer's final planned feature release. Future changes should focus on bug fixes, security fixes, dependency compatibility, and critical reliability maintenance unless the project direction is deliberately changed.
-
-
 
 ## ⚠️ Safety & permissions
 
