@@ -1,4 +1,4 @@
-# 👁️ Overseer V3.0
+# 👁️ Overseer
 
 [![CI](https://github.com/Nembz3/Overseer/actions/workflows/check.yml/badge.svg)](https://github.com/Nembz3/Overseer/actions/workflows/check.yml)
 [![Version](https://img.shields.io/badge/version-3.0.0-blue)](https://github.com/Nembz3/Overseer/releases)
@@ -6,168 +6,201 @@
 [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Overseer-ff5e5b)](https://ko-fi.com/nembz)
 
+Overseer is an AI-powered Discord administration and moderation bot built with Discord.js, Gemini, and SQLite.
 
-A Discord AI administrator and moderator built around **Gemini**, **Discord.js**, and a persistent local **SQLite** database.
+The project is designed to bring several server-management tools together in one place. Overseer can answer questions about a server, assist with moderation, manage tickets, monitor unusual activity, keep persistent records, and provide staff with operational controls and reports.
 
-Overseer is designed to act as a server's AI operations layer: it can answer members, inspect server context, moderate users, manage server resources, operate tickets, run giveaways, remember important information, and provide staff with control and reporting tools.
+> **Current release:** V3.0.0  
+> **Project status:** Final planned feature release
 
-## ❤️ Support Overseer
+## Support the project
 
-If you enjoy Overseer and want to support its development, you can make an optional donation on Ko-fi:
+If you enjoy Overseer and would like to support the project, you can make an optional donation through Ko-fi.
 
-**☕ [Support Overseer on Ko-fi](https://ko-fi.com/nembz)**
+☕ **[Support Overseer on Ko-fi](https://ko-fi.com/nembz)**
 
-Your support is appreciated and helps encourage future maintenance and development.
+Thank you for supporting the project.
 
-## ✨ Current capabilities
+---
 
-### 🤖 AI administrator
-- Gemini-powered natural-language conversations
-- Ask Overseer questions directly in chat
-- Start a message with `Overseer` instead of using a slash command
-- Bot mentions can also activate Overseer
-- `/overseer` remains available
-- Server/member/role/permission context can be supplied to the AI
-- Tool-based actions for supported server-management tasks
-- Gemini quota/rate-limit protection with friendly errors
-- Expanded local routing for simple server questions to save Gemini requests
-- Session request counters and admin diagnostics
+## Features
 
-### 🛡️ Moderation
-- Warnings and moderation records
-- Timeout/moderation actions
-- Permission-aware actions
-- Logging of important moderation activity
-- Emergency-stop/safety controls
-- Smart AutoMod with supervised/autonomous timeout modes
+### AI assistance
 
-### 🎫 Tickets
+- Gemini-powered conversations
+- Natural-language activation by addressing the bot as `Overseer`
+- Bot mention support
+- Traditional `/overseer` command support
+- Server, member, role, and permission context
+- Supported AI-assisted server-management actions
+- Local handling for simple questions to reduce unnecessary AI requests
+- Friendly handling of Gemini quota and rate-limit errors
+- Runtime diagnostics and request counters
+
+### Moderation and AutoMod
+
+- Warning history and moderation records
+- Timeout, kick, and ban support
+- Permission-aware moderation actions
+- Discord role hierarchy protection
+- Confirmation controls for higher-impact actions
+- Emergency stop for AI actions
+- Smart AutoMod
+- Supervised and autonomous moderation modes
+- Persistent AutoMod incident history
+
+### Tickets
+
 - Member-facing **Open Ticket** button
-- `/overseer-setup` creates a reusable `#open-a-ticket` entry point
-- Private ticket channels with permission overwrites
-- One-open-ticket-per-member protection
-- AI ticket agent with cooldown to reduce Gemini usage
+- Private ticket channels
+- One open ticket per member
+- Configurable ticket category
+- AI assistance inside tickets
+- Cooldowns to reduce unnecessary AI usage
 - Staff escalation support
-- Close button and `/ticket close`
-- `/ticket panel` for manually posting an additional ticket opener
+- Ticket close button
+- `/ticket open`, `/ticket close`, and `/ticket panel`
 
-### 🚨 Proactive intelligence
-- Proactive join-flood detection and raid-style activity alerts
-- Activity-spike detection based on live message volume
-- Persistent proactive alert history
-- Member activity tracking and most-active-member reporting
-- Daily or weekly scheduled intelligence reports
-- Configurable UTC report delivery time and destination channel
-- `/overseer-intelligence` command suite for proactive monitoring
-- `/overseer-cases` command suite for audit and moderation case history
+### Proactive intelligence
 
-### 🧠 Memory & server intelligence
-- Persistent SQLite memory
-- Structured `/overseer-memory` management
-- Server activity intelligence
-- Member/channel/role event monitoring
-- Local activity reporting without requiring a Gemini request for deterministic reports
+- Join-flood detection
+- Activity-spike detection
+- Persistent proactive alerts
+- Member activity tracking
+- Most-active-member reporting
+- Daily and weekly intelligence reports
+- Configurable report channels and UTC delivery times
+- Proactive monitoring controls through `/overseer-intelligence`
+- Moderation and audit history through `/overseer-cases`
 
-### 🎁 Giveaways
+### Server intelligence and memory
+
+- Persistent SQLite-backed server memory
+- Structured memory management
+- Member, channel, and role context
+- Activity reporting without requiring an AI request when the answer is deterministic
+
+### Operations
+
+- Staff control panel
+- Server setup command
+- Runtime diagnostics
+- AI availability reporting
+- Persistent operational logs
+- GitHub-based update and rollback tooling
+- GitHub Actions validation
+
+### Giveaways
+
 - Persistent giveaway data
-- Giveaway management through Overseer tools/commands
+- Giveaway management through Overseer's supported tools and commands
 
-### 🎛️ Control panel
-- `/overseer-panel`
-- AI/action controls
-- Moderation controls
-- AutoMod configuration
-- Logging and operational settings
-- `/overseer-status` with AI availability/cooldown information
-- `/overseer-diagnostics` for admin runtime health checks
-- `/warnings history`, `/warnings recent`, `/warnings leaderboard`, and `/warnings clear` for moderation intelligence
-- `/overseer-report`
+---
 
-## 📋 Commands
+## Commands
 
-Useful commands include:
+Common commands include:
 
 ```text
 /overseer
 /overseer-setup
 /overseer-panel
 /overseer-status
+/overseer-diagnostics
 /overseer-report
 /overseer-memory
+/overseer-intelligence
+/overseer-cases
+/overseer-update
 /automod
+/warnings
 /ticket open
 /ticket close
 /ticket panel
 ```
 
-Run `/overseer-setup` when setting up a new server. It creates/configures the server-side resources supported by the current version.
+Run `/overseer-setup` when configuring Overseer in a new server. It creates and configures the server-side resources required by the current version.
 
-## 💬 Natural-language activation
+---
 
-You don't have to use `/overseer` every time.
+## Natural-language activation
+
+Overseer can be addressed directly in chat.
 
 Examples:
 
 ```text
 Overseer, what can you do?
-Overseer, check my roles and permissions.
 Overseer, how many members are in the server?
+Overseer, check my roles and permissions.
 Hey Overseer, help me with my ticket.
 ```
 
-Mentions still work, and `/overseer` remains available.
+Bot mentions also work, and the `/overseer` slash command remains available.
 
-## 🔑 Configuration
+---
 
-Copy `.env.example` to `.env` and configure your own credentials:
+## Installation
 
-```env
-DISCORD_TOKEN=your_discord_bot_token
-DISCORD_CLIENT_ID=your_discord_application_id
-DISCORD_GUILD_ID=your_test_guild_id
-GEMINI_API_KEY=your_gemini_api_key
-GEMINI_MODEL=gemini-3.6-flash
-```
+### Requirements
 
-**Never commit `.env` or expose your Discord/Gemini keys.** `.env`, `node_modules`, and local SQLite database files should remain outside Git.
-
-## 🛠️ Installation
-
-Requirements:
-
-- Node.js **20+**
-- A Discord application/bot
+- Node.js **20 or newer**
+- A Discord application and bot token
 - A Gemini API key
 
-Install dependencies:
+### 1. Clone the repository
+
+```bat
+git clone https://github.com/Nembz3/Overseer.git
+cd Overseer
+```
+
+### 2. Install dependencies
 
 ```bat
 npm install
 ```
 
-Deploy slash commands:
+### 3. Configure the environment
+
+Copy `.env.example` to `.env` and add your own credentials:
+
+```env
+DISCORD_TOKEN=your_discord_bot_token
+DISCORD_CLIENT_ID=your_discord_application_client_id
+DISCORD_GUILD_ID=your_test_guild_id
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-3.6-flash
+DB_PATH=overseer.sqlite
+```
+
+**Never commit your `.env` file or share your API keys.**
+
+### 4. Deploy slash commands
 
 ```bat
 npm run deploy
 ```
 
-Start Overseer:
+### 5. Start Overseer
 
 ```bat
 npm start
 ```
 
-Run the source validation check:
+### 6. Validate the source
 
 ```bat
 npm run check
 ```
 
-## 🔄 Updating
+---
 
-The project is maintained through GitHub rather than separate ZIP releases.
+## Updating
 
-If you have the repository locally, run:
+Overseer is maintained through GitHub.
+
+To update an existing installation:
 
 ```bat
 update.bat
@@ -175,51 +208,89 @@ npm run check
 npm start
 ```
 
-The updater follows the repository's currently checked-out branch and installs the matching dependencies. Overseer's final release is maintained on the `main` branch.
+The updater follows the repository's currently checked-out branch and installs the matching dependencies.
 
-Your local `.env` and SQLite database are intentionally not tracked by Git, so they remain on your machine during normal updates.
+Your local `.env` file and SQLite database are intentionally excluded from Git, so they remain on your machine during normal updates.
 
-## 🧪 Recommended first checks
+---
 
-After installation/update, test:
+## First-time setup
 
-```text
-/overseer-setup
-/overseer-panel
-/overseer-status
-/overseer-report days:1
-/overseer-memory list
-/automod status
-```
-
-Then test natural-language messages beginning with `Overseer`, simple local questions such as `Overseer, how many members are there?`, and click **Open Ticket** in `#open-a-ticket`.
-
-
-## 🎬 Quick demo
-
-A simple way to experience Overseer:
+After the bot is online, a good starting point is:
 
 1. Run `/overseer-setup`
-2. Open `/overseer-panel` to inspect the control centre
-3. Send `Overseer, what can you do?`
-4. Test `/automod status` and `/overseer-report days:1`
-5. Open a member ticket from `#open-a-ticket`
-6. Check `/overseer-diagnostics` as an administrator
+2. Open `/overseer-panel`
+3. Run `/overseer-status`
+4. Check `/automod status`
+5. Run `/overseer-report days:1`
+6. Open a ticket from `#open-a-ticket`
+7. Run `/overseer-diagnostics` as an administrator
 
-This gives a quick tour of Overseer's AI, moderation, reporting, ticketing, and operational features.
+This provides a quick overview of Overseer's administration, moderation, reporting, ticketing, and operational tools.
 
-## 📦 Versioning
+---
 
-Current release track: **V3.0 — Final planned release**
+## Project structure
 
-See `CHANGELOG.md` for the release history and [`docs/V3.0.0-RELEASE-NOTES.md`](docs/V3.0.0-RELEASE-NOTES.md) for the V3.0.0 release summary.
+```text
+Overseer/
+├── src/
+│   ├── ai.js
+│   ├── automod.js
+│   ├── database.js
+│   ├── deploy-commands.js
+│   ├── events.js
+│   ├── index.js
+│   ├── proactive.js
+│   ├── runtime.js
+│   ├── server-intelligence.js
+│   ├── tickets.js
+│   ├── tools.js
+│   └── update-manager.js
+├── scripts/
+│   └── overseer-updater.js
+├── .github/
+├── CHANGELOG.md
+├── VERSION
+├── package.json
+└── update.bat
+```
 
-## 🧭 V3 release policy
+---
 
-V3 is Overseer's final planned feature release. Future changes should focus on bug fixes, security fixes, dependency compatibility, and critical reliability maintenance unless the project direction is deliberately changed.
+## Versioning and maintenance
 
-## ⚠️ Safety & permissions
+**V3.0.0 is Overseer's final planned feature release.**
 
-Overseer should only be given the Discord permissions it actually needs. Discord role hierarchy still applies: the bot cannot reliably moderate members or manage roles above its highest role, regardless of what the AI is asked to do.
+Future updates are expected to focus on:
 
-For destructive or high-impact actions, use the available confirmation/safety controls and keep the bot's permissions appropriately limited.
+- Bug fixes
+- Security fixes
+- Dependency compatibility
+- Critical reliability improvements
+
+Major new features are not currently planned unless the direction of the project deliberately changes.
+
+For release history, see [CHANGELOG.md](CHANGELOG.md).
+
+---
+
+## Security and permissions
+
+Only grant Overseer the Discord permissions it actually needs.
+
+Discord's role hierarchy still applies. Overseer cannot reliably moderate members or manage roles above its highest role, regardless of the permissions requested by an AI command.
+
+For destructive or high-impact actions, keep confirmation controls enabled and review the bot's permissions regularly.
+
+---
+
+## License
+
+This project is released under the MIT License.
+
+---
+
+Built by **Nembz3**.
+
+👁️ **The Overseer is watching.**
