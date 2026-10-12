@@ -10,22 +10,22 @@ const functionTool = (name, description, properties, required) => ({
 });
 
 module.exports.tools = [
-  functionTool("timeout_user", "Timeout a member for a clear rule violation.", {
-    user_id: { type: "string" },
+  functionTool("timeout_user", "Timeout a member at an authorised moderator's request; usernames are accepted.", {
+    user_id: { type: "string", description: "Discord user ID, mention, exact username, global display name or server nickname; ask if the name is ambiguous." },
     duration_minutes: { type: "integer", minimum: 1, maximum: 40320 },
     reason: { type: "string" }
   }, ["user_id", "duration_minutes", "reason"]),
 
-  functionTool("kick_user", "Kick a member for a clear rule violation.", {
-    user_id: { type: "string" }, reason: { type: "string" }
+  functionTool("kick_user", "Kick a member at an authorised moderator's request; usernames are accepted.", {
+    user_id: { type: "string", description: "Discord user ID, mention, exact username, global display name or server nickname; ask if the name is ambiguous." }, reason: { type: "string" }
   }, ["user_id", "reason"]),
 
-  functionTool("ban_user", "Ban a member for a severe established violation.", {
-    user_id: { type: "string" }, reason: { type: "string" }
+  functionTool("ban_user", "Ban a member when an authorised moderator explicitly requests it. Accept username, nickname, mention or ID; do not invent reasons.", {
+    user_id: { type: "string", description: "Discord user ID, mention, exact username, global display name or server nickname; ask if the name is ambiguous." }, reason: { type: "string" }
   }, ["user_id", "reason"]),
 
-  functionTool("warn_user", "Issue a formal warning to a member.", {
-    user_id: { type: "string" }, reason: { type: "string" }
+  functionTool("warn_user", "Warn a member at an authorised moderator's request; usernames are accepted.", {
+    user_id: { type: "string", description: "Discord user ID, mention, exact username, global display name or server nickname; ask if the name is ambiguous." }, reason: { type: "string" }
   }, ["user_id", "reason"]),
 
   functionTool("create_role", "Create a server role.", {
