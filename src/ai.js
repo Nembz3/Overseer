@@ -42,7 +42,7 @@ function prompt(guild, planningMode = false) {
   const planningInstruction = planningMode ? "\nPLANNING MODE: This is a complex server-management request. Do NOT call action tools yet. First produce a concise numbered execution plan, estimate the number of changes, and ask the user to explicitly confirm before execution.\n" : "";
   return `\nYou are Overseer, the AI administrator and moderation assistant for Discord server "${guild.name}".${planningInstruction}
 
-Your job is to help members and staff, explain actions clearly, and execute authorised requests using the tools instead of directing staff to do supported actions manually. Members may be identified by ID, mention, exact username, global display name or server nickname. Pass the provided name to the tool; it will resolve members. If ambiguous, ask the user to clarify. Never invent unsupported tools. For requests to give or remove an existing role, call assign_role or remove_role directly; do not tell staff to do it manually.
+Your job is to help members and staff, explain actions clearly, and execute authorised requests using the tools instead of directing staff to do supported actions manually. Members may be identified by ID, mention, exact username, global display name or server nickname. Pass the provided name to the tool; it will resolve members. If ambiguous, ask the user to clarify. Never invent unsupported tools. For supported Discord management tasks, select the matching tool and execute it directly; for requests to give or remove an existing role, call assign_role or remove_role directly; do not tell staff to do it manually.
 
 SERVER RULES:
 ${s.rules || "No custom rules configured."}
@@ -131,7 +131,7 @@ async function executeTool(guild, actorId, name, args) {
   if (!me) throw new Error("I couldn't verify Overseer's Discord member.");
 
   const moderation = new Set(["warn_user", "timeout_user", "kick_user", "ban_user"]);
-  const management = new Set(["create_role", "create_channel", "create_category", "create_channel_group", "assign_role", "remove_role"]);
+  const management = new Set(["create_role", "create_channel", "create_category", "create_channel_group", "assign_role", "remove_role", "rename_member", "edit_role", "rename_channel", "set_channel_topic", "set_channel_slowmode", "lock_channel", "unlock_channel", "move_channel", "send_message", "purge_messages", "unban_user", "remove_timeout"]);
 
   if (moderation.has(name) && !actor.permissions.has("ModerateMembers") && !actor.permissions.has("KickMembers") && !actor.permissions.has("BanMembers") && !actor.permissions.has("Administrator")) {
     throw new Error("Only moderators or administrators can request moderation actions.");
@@ -141,6 +141,17 @@ async function executeTool(guild, actorId, name, args) {
     throw new Error("You need " + actionPermission[name] + " permission to request this action.");
   }
   if (["assign_role", "remove_role"].includes(name) && !actor.permissions.has("ManageRoles") && !actor.permissions.has("Administrator")) throw new Error("You need Manage Roles to change member roles.");
+  const requiredPermission = {
+    rename_member: "ManageNicknames", edit_role: "ManageRoles",
+    rename_channel: "ManageChannels", set_channel_topic: "ManageChannels",
+    set_channel_slowmode: "ManageChannels", lock_channel: "ManageChannels",
+    unlock_channel: "ManageChannels", move_channel: "ManageChannels",
+    send_message: "ManageGuild", purge_messages: "ManageMessages",
+    unban_user: "BanMembers", remove_timeout: "ModerateMembers"
+  };
+  if (requiredPermission[name] && !actor.permissions.has(requiredPermission[name]) && !actor.permissions.has("Administrator")) {
+    throw new Error("You need " + requiredPermission[name] + " permission for this action.");
+  }
   if (management.has(name) && !actor.permissions.has("ManageGuild") && !actor.permissions.has("ManageChannels") && !actor.permissions.has("ManageRoles") && !actor.permissions.has("Administrator")) {
     throw new Error("Only server managers or administrators can request server-management actions.");
   }
@@ -153,7 +164,7 @@ async function executeTool(guild, actorId, name, args) {
 
   const cooldowns = {
     warn_user: 5, timeout_user: 10, kick_user: 15, ban_user: 30,
-    assign_role: 2, remove_role: 2, create_role: 10, create_channel: 10, create_category: 10, create_channel_group: 15, remember: 3
+    assign_role: 2, remove_role: 2, purge_messages: 15, send_message: 5, create_role: 10, create_channel: 10, create_category: 10, create_channel_group: 15, remember: 3
   };
   if (!db.cooldownReady(guild.id, actorId, name, cooldowns[name] || 3)) {
     throw new Error("That Overseer action is on cooldown. Please wait a moment.");
@@ -234,6 +245,102 @@ async function executeTool(guild, actorId, name, args) {
     else await member.roles.remove(role, reason);
     db.log(guild.id, actorId, member.id, name === "assign_role" ? "ASSIGN_ROLE" : "REMOVE_ROLE", role.name + " (" + role.id + ")");
     return { ok: true, action: name, user_id: member.id, role_id: role.id, role_name: role.name };
+  }
+
+
+  const reason = "Overseer request by " + actor.user.username + " (" + actorId + ")";
+  if (name === "server_info") {
+    return { ok: true, name: guild.name, id: guild.id, members: guild.memberCount, roles: guild.roles.cache.size, channels: guild.channels.cache.size, owner_id: guild.ownerId };
+  }
+  if (name === "list_roles") {
+    return { ok: true, roles: guild.roles.cache.sort((a,b) => b.position - a.position).first(80).map(r => ({ id:r.id, name:r.name, position:r.position })) };
+  }
+  if (name === "list_channels") {
+    return { ok: true, channels: guild.channels.cache.first(100).map(c => ({ id:c.id, name:c.name, type:c.type, parent_id:c.parentId })) };
+  }
+  if (name === "member_info") {
+    const m = await fetchMember(guild, args.user_id);
+    return { ok:true, id:m.id, username:m.user.username, nickname:m.nickname, joined_at:m.joinedAt?.toISOString(), roles:m.roles.cache.map(r=>({id:r.id,name:r.name})).slice(0,40) };
+  }
+  if (name === "rename_member") {
+    if (!me.permissions.has("ManageNicknames")) throw new Error("Overseer needs Manage Nicknames.");
+    const m = await fetchMember(guild,args.user_id);
+    if (!canModerate(me,m) || (actor.id !== guild.ownerId && m.roles.highest.position >= actor.roles.highest.position && m.id !== actor.id)) throw new Error("Member role hierarchy prevents nickname change.");
+    await m.setNickname(String(args.nickname).slice(0,32) || null,reason);
+    db.log(guild.id,actorId,m.id,"RENAME_MEMBER",String(args.nickname));
+    return {ok:true,action:name,user_id:m.id};
+  }
+  if (name === "edit_role") {
+    if (!me.permissions.has("ManageRoles")) throw new Error("Overseer needs Manage Roles.");
+    const role=await guild.roles.fetch(String(args.role_id)).catch(()=>null);
+    if (!role || role.id===guild.id || role.managed || role.position>=me.roles.highest.position || (actor.id!==guild.ownerId && role.position>=actor.roles.highest.position)) throw new Error("Role not found or role hierarchy prevents editing.");
+    const roleName=String(args.name||"").trim().slice(0,100);
+    if (!roleName) throw new Error("Role name is required.");
+    await role.setName(roleName,reason);
+    db.log(guild.id,actorId,null,"EDIT_ROLE",role.id+" "+roleName);
+    return {ok:true,action:name,role_id:role.id,name:roleName};
+  }
+  const channelActions=new Set(["rename_channel","set_channel_topic","set_channel_slowmode","lock_channel","unlock_channel","move_channel","send_message","purge_messages"]);
+  if (channelActions.has(name)) {
+    const channel=await guild.channels.fetch(String(args.channel_id)).catch(()=>null);
+    if (!channel) throw new Error("Channel not found.");
+    if (name==="send_message") {
+      if (!channel.isTextBased() || !channel.send) throw new Error("This channel does not support messages.");
+      if (!channel.permissionsFor(me)?.has("SendMessages")) throw new Error("Overseer cannot send messages in this channel.");
+      const content=String(args.content||"").trim().slice(0,1900);
+      if (!content) throw new Error("Message cannot be empty.");
+      const sent=await channel.send({content,allowedMentions:{parse:[]}});
+      db.log(guild.id,actorId,null,"SEND_MESSAGE",channel.id+" "+sent.id);
+      return {ok:true,action:name,message_id:sent.id};
+    }
+    if (name==="purge_messages") {
+      if (!me.permissions.has("ManageMessages") || !channel.bulkDelete) throw new Error("Overseer needs Manage Messages in a text channel.");
+      const count=Number(args.count);
+      if (!Number.isInteger(count)||count<1||count>100) throw new Error("Count must be between 1 and 100.");
+      const deleted=await channel.bulkDelete(count,true);
+      db.log(guild.id,actorId,null,"PURGE_MESSAGES",channel.id+" count="+deleted.size);
+      return {ok:true,action:name,deleted:deleted.size};
+    }
+    if (!me.permissions.has("ManageChannels")) throw new Error("Overseer needs Manage Channels.");
+    if (name==="rename_channel") await channel.setName(normaliseChannelName(args.name),reason);
+    if (name==="set_channel_topic") {
+      if (!channel.setTopic) throw new Error("This channel has no topic.");
+      await channel.setTopic(String(args.topic||"").slice(0,1024),reason);
+    }
+    if (name==="set_channel_slowmode") {
+      if (!channel.setRateLimitPerUser) throw new Error("This channel does not support slowmode.");
+      const seconds=Number(args.seconds);
+      if (!Number.isInteger(seconds)||seconds<0||seconds>21600) throw new Error("Slowmode must be 0-21600 seconds.");
+      await channel.setRateLimitPerUser(seconds,reason);
+    }
+    if (name==="lock_channel" || name==="unlock_channel") {
+      if (!channel.permissionOverwrites) throw new Error("Channel overwrites unavailable.");
+      await channel.permissionOverwrites.edit(guild.roles.everyone,{SendMessages:name==="unlock_channel"?null:false},{reason});
+    }
+    if (name==="move_channel") {
+      const category=await guild.channels.fetch(String(args.category_id)).catch(()=>null);
+      const {ChannelType}=require("discord.js");
+      if (!category||category.type!==ChannelType.GuildCategory) throw new Error("Target category not found.");
+      await channel.setParent(category.id,{lockPermissions:false,reason});
+    }
+    db.log(guild.id,actorId,null,name.toUpperCase(),channel.id);
+    return {ok:true,action:name,channel_id:channel.id};
+  }
+  if (name==="unban_user") {
+    if (!me.permissions.has("BanMembers")) throw new Error("Overseer needs Ban Members.");
+    const id=String(args.user_id||"").trim().replace(/^<@!?(\d{17,20})>$/,"$1");
+    if (!/^\d{17,20}$/.test(id)) throw new Error("Unbanning requires a Discord user ID.");
+    await guild.bans.remove(id,String(args.reason||"Unbanned by Overseer").slice(0,500));
+    db.log(guild.id,actorId,id,"UNBAN",String(args.reason||""));
+    return {ok:true,action:name,user_id:id};
+  }
+  if (name==="remove_timeout") {
+    if (!me.permissions.has("ModerateMembers")) throw new Error("Overseer needs Moderate Members.");
+    const m=await fetchMember(guild,args.user_id);
+    if (!canModerate(me,m)) throw new Error("Role hierarchy prevents removing timeout.");
+    await m.timeout(null,reason);
+    db.log(guild.id,actorId,m.id,"REMOVE_TIMEOUT",reason);
+    return {ok:true,action:name,user_id:m.id};
   }
 
   if (name === "create_role") {
