@@ -11,6 +11,22 @@ const pendingPlans = new Map();
 const MAX_TOOL_ROUNDS = 12;
 const MAX_ACTION_CALLS = 30;
 
+// Retry only model requests, never previously executed Discord actions.
+function isTransientModelError(error) {
+  const status = Number(error?.status || error?.code);
+  return [500, 502, 503, 504].includes(status);
+}
+async function generateWithRetry(request) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await ai.models.generateContent(request);
+    } catch (error) {
+      if (!isTransientModelError(error) || attempt === 2) throw error;
+      await new Promise(resolve => setTimeout(resolve, 700 * (2 ** attempt)));
+    }
+  }
+}
+
 function geminiTools() {
   return [{ functionDeclarations: tools.map(t => ({
     name: t.name,
@@ -71,7 +87,7 @@ async function ask({ guild, actorId, text }) {
 
   let response;
   try {
-    response = await ai.models.generateContent({
+    response = await generateWithRetry({
     model: MODEL,
     contents: [{ role: "user", parts: [{ text: `${prompt(guild, planningMode)}\nUSER (${actorId}): ${effectiveText.trim()}` }] }],
     config: planningMode ? {} : { tools: geminiTools() }
@@ -101,7 +117,7 @@ async function ask({ guild, actorId, text }) {
     }
 
     history.push(originalModelContent, { role: "user", parts: results.map(x => ({ functionResponse: { name: x.name, response: x.response } })) });
-    response = await ai.models.generateContent({ model: MODEL, contents: history, config: { tools: geminiTools() } });
+    response = await generateWithRetry({ model: MODEL, contents: history, config: { tools: geminiTools() } });
   }
 
   runtime.clearAiError();
