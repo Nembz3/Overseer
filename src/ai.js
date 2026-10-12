@@ -42,7 +42,7 @@ function prompt(guild, planningMode = false) {
   const planningInstruction = planningMode ? "\nPLANNING MODE: This is a complex server-management request. Do NOT call action tools yet. First produce a concise numbered execution plan, estimate the number of changes, and ask the user to explicitly confirm before execution.\n" : "";
   return `\nYou are Overseer, the AI administrator and moderation assistant for Discord server "${guild.name}".${planningInstruction}
 
-Your job is to help members and staff, explain actions clearly, and execute authorised requests using the tools instead of directing staff to do supported actions manually. Members may be identified by ID, mention, exact username, global display name or server nickname. Pass the provided name to the tool; it will resolve members. If ambiguous, ask the user to clarify. Never invent unsupported tools.
+Your job is to help members and staff, explain actions clearly, and execute authorised requests using the tools instead of directing staff to do supported actions manually. Members may be identified by ID, mention, exact username, global display name or server nickname. Pass the provided name to the tool; it will resolve members. If ambiguous, ask the user to clarify. Never invent unsupported tools. For requests to give or remove an existing role, call assign_role or remove_role directly; do not tell staff to do it manually.
 
 SERVER RULES:
 ${s.rules || "No custom rules configured."}
@@ -131,7 +131,7 @@ async function executeTool(guild, actorId, name, args) {
   if (!me) throw new Error("I couldn't verify Overseer's Discord member.");
 
   const moderation = new Set(["warn_user", "timeout_user", "kick_user", "ban_user"]);
-  const management = new Set(["create_role", "create_channel", "create_category", "create_channel_group"]);
+  const management = new Set(["create_role", "create_channel", "create_category", "create_channel_group", "assign_role", "remove_role"]);
 
   if (moderation.has(name) && !actor.permissions.has("ModerateMembers") && !actor.permissions.has("KickMembers") && !actor.permissions.has("BanMembers") && !actor.permissions.has("Administrator")) {
     throw new Error("Only moderators or administrators can request moderation actions.");
@@ -140,6 +140,7 @@ async function executeTool(guild, actorId, name, args) {
   if (actionPermission[name] && !actor.permissions.has(actionPermission[name]) && !actor.permissions.has("Administrator")) {
     throw new Error("You need " + actionPermission[name] + " permission to request this action.");
   }
+  if (["assign_role", "remove_role"].includes(name) && !actor.permissions.has("ManageRoles") && !actor.permissions.has("Administrator")) throw new Error("You need Manage Roles to change member roles.");
   if (management.has(name) && !actor.permissions.has("ManageGuild") && !actor.permissions.has("ManageChannels") && !actor.permissions.has("ManageRoles") && !actor.permissions.has("Administrator")) {
     throw new Error("Only server managers or administrators can request server-management actions.");
   }
@@ -152,7 +153,7 @@ async function executeTool(guild, actorId, name, args) {
 
   const cooldowns = {
     warn_user: 5, timeout_user: 10, kick_user: 15, ban_user: 30,
-    create_role: 10, create_channel: 10, create_category: 10, create_channel_group: 15, remember: 3
+    assign_role: 2, remove_role: 2, create_role: 10, create_channel: 10, create_category: 10, create_channel_group: 15, remember: 3
   };
   if (!db.cooldownReady(guild.id, actorId, name, cooldowns[name] || 3)) {
     throw new Error("That Overseer action is on cooldown. Please wait a moment.");
@@ -207,6 +208,32 @@ async function executeTool(guild, actorId, name, args) {
     await member.ban({ reason: args.reason });
     db.log(guild.id, actorId, member.id, "BAN", args.reason);
     return { ok: true, action: "ban", user_id: member.id, reason: args.reason };
+  }
+
+  if (name === "assign_role" || name === "remove_role") {
+    if (!me.permissions.has("ManageRoles")) throw new Error("Overseer needs Manage Roles permission.");
+    const member = await fetchMember(guild, args.user_id);
+    const roleInput = String(args.role_id || "").trim().replace(/^<@&(\\d{17,20})>$/, "$1");
+    let role = /^\\d{17,20}$/.test(roleInput) ? await guild.roles.fetch(roleInput).catch(() => null) : null;
+    if (!role && !/^\\d{17,20}$/.test(roleInput)) {
+      const matches = guild.roles.cache.filter(r => r.name.toLocaleLowerCase() === roleInput.toLocaleLowerCase());
+      if (matches.size > 1) throw new Error("Multiple roles match that name; provide the role ID.");
+      role = matches.first() || null;
+    }
+    if (!role || role.guild.id !== guild.id) throw new Error("I couldn't find that role in this server.");
+    if (role.id === guild.id || role.managed) throw new Error("That role cannot be manually assigned or removed.");
+    if (role.position >= me.roles.highest.position) throw new Error("Overseer's highest role must be above the target role.");
+    if (actor.id !== guild.ownerId && role.position >= actor.roles.highest.position) throw new Error("You cannot manage a role at or above your own highest role.");
+    if (actor.id !== guild.ownerId && member.id !== actor.id && member.roles.highest.position >= actor.roles.highest.position) throw new Error("You cannot manage a member with an equal or higher role.");
+    if (member.id === guild.ownerId && actor.id !== guild.ownerId) throw new Error("Only the server owner can request role changes for the owner.");
+    const hasRole = member.roles.cache.has(role.id);
+    if (name === "assign_role" && hasRole) return { ok: true, action: name, user_id: member.id, role_id: role.id, message: "Member already has that role." };
+    if (name === "remove_role" && !hasRole) return { ok: true, action: name, user_id: member.id, role_id: role.id, message: "Member does not have that role." };
+    const reason = "Overseer request by " + actor.user.username + " (" + actorId + ")";
+    if (name === "assign_role") await member.roles.add(role, reason);
+    else await member.roles.remove(role, reason);
+    db.log(guild.id, actorId, member.id, name === "assign_role" ? "ASSIGN_ROLE" : "REMOVE_ROLE", role.name + " (" + role.id + ")");
+    return { ok: true, action: name, user_id: member.id, role_id: role.id, role_name: role.name };
   }
 
   if (name === "create_role") {
