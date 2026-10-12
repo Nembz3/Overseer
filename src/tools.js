@@ -28,6 +28,16 @@ module.exports.tools = [
     user_id: { type: "string", description: "Discord user ID, mention, exact username, global display name or server nickname; ask if the name is ambiguous." }, reason: { type: "string" }
   }, ["user_id", "reason"]),
 
+  functionTool("assign_role", "Give an existing server role to a member. Accept role ID or exact role name and member ID, mention, username or nickname.", {
+    user_id: { type: "string", description: "Member ID, mention, username or nickname" },
+    role_id: { type: "string", description: "Existing role ID or exact role name" }
+  }, ["user_id", "role_id"]),
+
+  functionTool("remove_role", "Remove an existing server role from a member. Accept role ID or exact role name and member ID, mention, username or nickname.", {
+    user_id: { type: "string", description: "Member ID, mention, username or nickname" },
+    role_id: { type: "string", description: "Existing role ID or exact role name" }
+  }, ["user_id", "role_id"]),
+
   functionTool("create_role", "Create a server role.", {
     name: { type: "string" }, color: { type: "string" }
   }, ["name"]),
