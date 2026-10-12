@@ -18,6 +18,7 @@ function clearAiError() { lastAiError = null; }
 function aiAvailable() { return Date.now() >= quotaUntil; }
 function friendlyAiError(error) {
   if (isQuotaError(error) || !aiAvailable()) return "⏳ Overseer's Gemini quota or rate limit has been reached temporarily. Please try again later.";
+  if ([500, 502, 503, 504].includes(Number(error?.status || error?.code))) return "⚠️ Gemini encountered a temporary server error even after retries. No action was taken for this failed request. Please try again shortly.";
   return "❌ I couldn't contact the AI right now. The error was logged for the server administrator.";
 }
 function routeLocal(guild, member, text) {
