@@ -12,12 +12,18 @@ function markAiRequest() { aiRequests++; }
 function markLocalRequest() { localRequests++; }
 function markAiError(error) {
   lastAiError = { at: Date.now(), message: String(error?.message || error || "Unknown AI error") };
-  if (isQuotaError(error)) quotaUntil = Date.now() + 60_000;
+  if (isQuotaError(error)) {
+    const message = String(error?.message || "");
+    const retryInfo = message.match(/"retryDelay"\s*:\s*"(\d+)s"/);
+    const human = message.match(/Please retry in\s+(?:(\d+)h)?(?:(\d+)m)?(?:(\d+(?:\.\d+)?)s)?/i);
+    const seconds = retryInfo ? Number(retryInfo[1]) : human ? Number(human[1] || 0)*3600 + Number(human[2] || 0)*60 + Number(human[3] || 0) : 60;
+    quotaUntil = Math.max(quotaUntil, Date.now() + Math.max(60, seconds) * 1000);
+  }
 }
 function clearAiError() { lastAiError = null; }
 function aiAvailable() { return Date.now() >= quotaUntil; }
 function friendlyAiError(error) {
-  if (isQuotaError(error) || !aiAvailable()) return "⏳ Overseer's Gemini quota or rate limit has been reached temporarily. Please try again later.";
+  if (isQuotaError(error) || !aiAvailable()) return "⏳ Gemini quota reached. Try again in approximately " + Math.max(1, Math.ceil((quotaUntil-Date.now())/60000)) + " minute(s).";
   if ([500, 502, 503, 504].includes(Number(error?.status || error?.code))) return "⚠️ Gemini encountered a temporary server error even after retries. Check Overseer logs for any completed actions before retrying.";
   return "❌ I couldn't contact the AI right now. The error was logged for the server administrator.";
 }
