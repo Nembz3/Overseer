@@ -8,6 +8,8 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 const runtime = require("./runtime");
 const pendingPlans = new Map();
+const MAX_TOOL_ROUNDS = 12;
+const MAX_ACTION_CALLS = 30;
 
 function geminiTools() {
   return [{ functionDeclarations: tools.map(t => ({
@@ -24,7 +26,7 @@ function prompt(guild, planningMode = false) {
   const planningInstruction = planningMode ? "\nPLANNING MODE: This is a complex server-management request. Do NOT call action tools yet. First produce a concise numbered execution plan, estimate the number of changes, and ask the user to explicitly confirm before execution.\n" : "";
   return `\nYou are Overseer, the AI administrator and moderation assistant for Discord server "${guild.name}".${planningInstruction}
 
-Your job is to help members and staff, explain actions clearly, and use tools only when the user actually requests an action.
+Your job is to help members and staff, explain actions clearly, and execute authorised requests using the tools instead of directing staff to do supported actions manually. Members may be identified by ID, mention, exact username, global display name or server nickname. Pass the provided name to the tool; it will resolve members. If ambiguous, ask the user to clarify. Never invent unsupported tools.
 
 SERVER RULES:
 ${s.rules || "No custom rules configured."}
@@ -76,10 +78,14 @@ async function ask({ guild, actorId, text }) {
     });
   } catch (e) { runtime.markAiError(e); throw e; }
 
-  for (let round = 0; round < 5; round++) {
+  const history = [{ role: "user", parts: [{ text: `${prompt(guild)}\nUSER (${actorId}): ${effectiveText.trim()}` }] }];
+  let totalCalls = 0;
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const calls = response.functionCalls || [];
     if (!calls.length) return response.text || "I couldn't generate a response.";
 
+    if (totalCalls + calls.length > MAX_ACTION_CALLS) return "I reached the action limit for one request. Split it into smaller tasks.";
+    totalCalls += calls.length;
     const originalModelContent = response.candidates?.[0]?.content;
     if (!originalModelContent) throw new Error("Gemini returned a tool call without model content.");
 
@@ -94,19 +100,12 @@ async function ask({ guild, actorId, text }) {
       results.push({ name: call.name, response: result });
     }
 
-    response = await ai.models.generateContent({
-      model: MODEL,
-      contents: [
-        { role: "user", parts: [{ text: `${prompt(guild)}\nUSER (${actorId}): ${text.trim()}` }] },
-        originalModelContent,
-        { role: "user", parts: results.map(x => ({ functionResponse: { name: x.name, response: x.response } })) }
-      ],
-      config: { tools: geminiTools() }
-    });
+    history.push(originalModelContent, { role: "user", parts: results.map(x => ({ functionResponse: { name: x.name, response: x.response } })) });
+    response = await ai.models.generateContent({ model: MODEL, contents: history, config: { tools: geminiTools() } });
   }
 
   runtime.clearAiError();
-  return "I couldn't safely complete that request.";
+  return "I reached the multi-step execution limit. Some actions may have completed; review the audit log before retrying.";
 }
 
 async function executeTool(guild, actorId, name, args) {
@@ -241,10 +240,30 @@ async function executeTool(guild, actorId, name, args) {
   throw new Error(`Unknown tool: ${name}`);
 }
 
-async function fetchMember(guild, id) {
-  const member = await guild.members.fetch(String(id)).catch(() => null);
-  if (!member) throw new Error(`I couldn't find server member ${id}.`);
-  return member;
+async function fetchMember(guild, identifier) {
+  const raw = String(identifier || "").trim();
+  if (!raw) throw new Error("Please specify a member.");
+  const mention = raw.match(/^<@!?(\d{17,20})>$/);
+  const id = mention ? mention[1] : raw;
+  if (/^\d{17,20}$/.test(id)) {
+    const member = await guild.members.fetch(id).catch(() => null);
+    if (!member) throw new Error("I couldn't find server member " + raw + ".");
+    return member;
+  }
+  // Fetch beyond cache; this requires Discord's Guild Members privileged intent.
+  const members = await guild.members.fetch().catch(() => null);
+  if (!members) throw new Error("I couldn't retrieve the server member list. Enable Server Members Intent or use a mention.");
+  const needle = raw.replace(/^@/, "").toLocaleLowerCase();
+  const matches = members.filter(member => [
+    member.user.username, member.user.globalName, member.displayName,
+    member.nickname, member.user.tag
+  ].some(name => name && name.toLocaleLowerCase() === needle));
+  if (!matches.size) throw new Error('No member named "' + raw + '" found. Use their exact username or mention.');
+  if (matches.size > 1) {
+    const options = matches.first(5).map(member => member.user.username + " (" + member.id + ")").join(", ");
+    throw new Error('Multiple members match "' + raw + '": ' + options + ". Mention the right user.");
+  }
+  return matches.first();
 }
 
 function normaliseChannelName(name) {
