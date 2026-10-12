@@ -120,6 +120,10 @@ async function executeTool(guild, actorId, name, args) {
   if (moderation.has(name) && !actor.permissions.has("ModerateMembers") && !actor.permissions.has("KickMembers") && !actor.permissions.has("BanMembers") && !actor.permissions.has("Administrator")) {
     throw new Error("Only moderators or administrators can request moderation actions.");
   }
+  const actionPermission = { ban_user: "BanMembers", kick_user: "KickMembers", timeout_user: "ModerateMembers", warn_user: "ModerateMembers" };
+  if (actionPermission[name] && !actor.permissions.has(actionPermission[name]) && !actor.permissions.has("Administrator")) {
+    throw new Error("You need " + actionPermission[name] + " permission to request this action.");
+  }
   if (management.has(name) && !actor.permissions.has("ManageGuild") && !actor.permissions.has("ManageChannels") && !actor.permissions.has("ManageRoles") && !actor.permissions.has("Administrator")) {
     throw new Error("Only server managers or administrators can request server-management actions.");
   }
@@ -168,7 +172,7 @@ async function executeTool(guild, actorId, name, args) {
     if (db.settings(guild.id).confirmations) {
       const id = crypto.randomBytes(4).toString("hex").toUpperCase();
       db.createPending(id, guild.id, actorId, "kick", { user_id: member.id, reason: args.reason });
-      return { ok: false, confirmation_required: true, confirmation_id: id, action: "kick", user_id: member.id, reason: args.reason, message: `A kick requires confirmation. Confirmation ID: ${id}` };
+      return { ok: false, confirmation_required: true, confirmation_id: id, action: "kick", user_id: member.id, reason: args.reason, message: `Kick awaiting confirmation for <@${member.id}>. Run /overseer-confirm id:${id} to execute.` };
     }
     await member.kick(args.reason);
     db.log(guild.id, actorId, member.id, "KICK", args.reason);
@@ -182,7 +186,7 @@ async function executeTool(guild, actorId, name, args) {
     if (settings.confirmations) {
       const id = crypto.randomBytes(4).toString("hex").toUpperCase();
       db.createPending(id, guild.id, actorId, "ban", { user_id: member.id, reason: args.reason });
-      return { ok: false, confirmation_required: true, confirmation_id: id, action: "ban", user_id: member.id, reason: args.reason, message: `A ban requires confirmation. Confirmation ID: ${id}` };
+      return { ok: false, confirmation_required: true, confirmation_id: id, action: "ban", user_id: member.id, reason: args.reason, message: `Ban awaiting confirmation for <@${member.id}>. Run /overseer-confirm id:${id} to execute.` };
     }
     await member.ban({ reason: args.reason });
     db.log(guild.id, actorId, member.id, "BAN", args.reason);
